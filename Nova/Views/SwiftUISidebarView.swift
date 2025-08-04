@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import WebKit
 
 struct NovaNavigationView: View {
     @Environment(\.modelContext) private var modelContext
@@ -145,7 +146,7 @@ struct SidebarContentView: View {
                 .buttonStyle(PlainButtonStyle())
                 .padding(.trailing, 12)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
@@ -450,7 +451,11 @@ struct FloatingWebContentView: View {
     @Binding var sidebarVisible: Bool
     
     @State private var currentURL = ""
+    @State private var editingURL = ""
     @State private var isEditingURL = false
+    @State private var webView: CustomWebKitView?
+    @State private var canGoBack = false
+    @State private var canGoForward = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -468,19 +473,19 @@ struct FloatingWebContentView: View {
                 
                 // Navigation buttons
                 HStack(spacing: 8) {
-                    Button(action: {}) {
+                    Button(action: { webView?.goBack() }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .disabled(true)
+                    .disabled(!canGoBack)
                     
-                    Button(action: {}) {
+                    Button(action: { webView?.goForward() }) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .disabled(true)
+                    .disabled(!canGoForward)
                     
-                    Button(action: {}) {
+                    Button(action: { webView?.reload() }) {
                         Image(systemName: "arrow.clockwise")
                             .font(.system(size: 14, weight: .medium))
                     }
@@ -490,64 +495,65 @@ struct FloatingWebContentView: View {
                 
                 // URL field
                 HStack {
-                    Image(systemName: "lock.fill")
+                    Image(systemName: currentURL.hasPrefix("https") ? "lock.fill" : "lock.open")
                         .font(.system(size: 12))
-                        .foregroundColor(.green)
+                        .foregroundColor(currentURL.hasPrefix("https") ? .green : .orange)
                     
                     if isEditingURL {
-                        TextField("Enter URL", text: $currentURL)
+                        TextField("Enter URL", text: $editingURL)
                             .textFieldStyle(PlainTextFieldStyle())
                             .onSubmit {
-                                // TODO: Navigate to URL
+                                navigateToURL(editingURL)
                                 isEditingURL = false
                             }
                             .onExitCommand {
+                                editingURL = currentURL
                                 isEditingURL = false
                             }
+                        
+                        // Go button when editing
+                        Button(action: {
+                            navigateToURL(editingURL)
+                            isEditingURL = false
+                        }) {
+                            Image(systemName: "arrow.right.circle.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.accentColor)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     } else {
                         Text(currentURL.isEmpty ? "Enter URL or search" : currentURL)
                             .foregroundColor(currentURL.isEmpty ? .secondary : .primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                editingURL = currentURL
                                 isEditingURL = true
                             }
                     }
-                    
-                    Button(action: {}) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color(NSColor.controlBackgroundColor))
                 .cornerRadius(8)
                 
-                // Action buttons
-                HStack(spacing: 8) {
-                    Button(action: {}) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .medium))
+                // Action buttons (removed plus button)
+                Menu {
+                    Button("Add Bookmark") { /* TODO */ }
+                    Button("Developer Tools") { 
+                        webView?.showInspector()
                     }
-                    
-                    Menu {
-                        Button("Add Bookmark") { /* TODO */ }
-                        Button("Developer Tools") { /* TODO */ }
-                        Divider()
-                        Button("Settings") { /* TODO */ }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 16, weight: .medium))
-                    }
+                    Divider()
+                    Button("Settings") { /* TODO */ }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 16, weight: .medium))
                 }
                 .foregroundColor(.secondary)
                 .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .background(.ultraThinMaterial)
             .overlay(
                 Rectangle()
@@ -561,20 +567,38 @@ struct FloatingWebContentView: View {
             if let selectedItem = selectedItem {
                 switch selectedItem {
                 case .bookmark(let bookmark):
-                    WebViewRepresentable(url: URL(string: bookmark.url))
-                        .onAppear {
-                            currentURL = bookmark.url
-                        }
+                    WebViewRepresentable(
+                        url: URL(string: bookmark.url),
+                        webView: $webView,
+                        currentURL: $currentURL,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward
+                    )
+                    .onAppear {
+                        currentURL = bookmark.url
+                    }
                 case .tab(let tab):
-                    WebViewRepresentable(url: URL(string: tab.url))
-                        .onAppear {
-                            currentURL = tab.url
-                        }
+                    WebViewRepresentable(
+                        url: URL(string: tab.url),
+                        webView: $webView,
+                        currentURL: $currentURL,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward
+                    )
+                    .onAppear {
+                        currentURL = tab.url
+                    }
                 case .pinnedTab(let pinnedTab):
-                    WebViewRepresentable(url: URL(string: pinnedTab.url))
-                        .onAppear {
-                            currentURL = pinnedTab.url
-                        }
+                    WebViewRepresentable(
+                        url: URL(string: pinnedTab.url),
+                        webView: $webView,
+                        currentURL: $currentURL,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward
+                    )
+                    .onAppear {
+                        currentURL = pinnedTab.url
+                    }
                 }
             } else {
                 // Empty state that fills the entire area below the URL bar
@@ -606,22 +630,96 @@ struct FloatingWebContentView: View {
         .cornerRadius(12, corners: [.topLeft, .bottomLeft])
         .shadow(color: .black.opacity(0.1), radius: 10, x: -2, y: 0)
     }
+    
+    private func navigateToURL(_ urlString: String) {
+        var finalURL = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Add https:// if no protocol is specified
+        if !finalURL.contains("://") {
+            // Check if it looks like a search query
+            if !finalURL.contains(".") || finalURL.contains(" ") {
+                // Use search engine
+                finalURL = "https://www.google.com/search?q=\(finalURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+            } else {
+                finalURL = "https://\(finalURL)"
+            }
+        }
+        
+        if let url = URL(string: finalURL) {
+            webView?.load(URLRequest(url: url))
+            currentURL = finalURL
+        }
+    }
 }
 
 struct WebViewRepresentable: NSViewRepresentable {
     let url: URL?
+    @Binding var webView: CustomWebKitView?
+    @Binding var currentURL: String
+    @Binding var canGoBack: Bool
+    @Binding var canGoForward: Bool
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
     
     func makeNSView(context: Context) -> CustomWebKitView {
         let webView = CustomWebKitView()
+        
+        // Store reference to webView immediately
+        DispatchQueue.main.async {
+            self.webView = webView
+        }
+        
+        // Load URL
         if let url = url {
             webView.load(URLRequest(url: url))
         }
+        
+        // Start polling for navigation state updates
+        context.coordinator.startPolling(webView)
+        
         return webView
     }
     
     func updateNSView(_ nsView: CustomWebKitView, context: Context) {
         if let url = url, nsView.url != url {
             nsView.load(URLRequest(url: url))
+        }
+    }
+    
+    class Coordinator: NSObject {
+        var parent: WebViewRepresentable
+        var timer: Timer?
+        weak var webView: CustomWebKitView?
+        
+        init(_ parent: WebViewRepresentable) {
+            self.parent = parent
+        }
+        
+        func startPolling(_ webView: CustomWebKitView) {
+            self.webView = webView
+            
+            // Poll every 0.5 seconds to update navigation state
+            timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                guard let self = self, let webView = self.webView else { return }
+                
+                DispatchQueue.main.async {
+                    // Update navigation state
+                    self.parent.canGoBack = webView.canGoBack
+                    self.parent.canGoForward = webView.canGoForward
+                    
+                    // Update URL if it changed
+                    if let currentURL = webView.url?.absoluteString,
+                       currentURL != self.parent.currentURL {
+                        self.parent.currentURL = currentURL
+                    }
+                }
+            }
+        }
+        
+        deinit {
+            timer?.invalidate()
         }
     }
 }
