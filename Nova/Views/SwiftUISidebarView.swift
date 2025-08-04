@@ -17,6 +17,7 @@ struct NovaNavigationView: View {
     @State private var selectedItem: SidebarItem?
     @State private var showingProfileSheet = false
     @State private var showingSpaceSheet = false
+    @State private var editingSpace: Space?
     @State private var sidebarVisible = true
     
     var body: some View {
@@ -28,6 +29,7 @@ struct NovaNavigationView: View {
                     selectedItem: $selectedItem,
                     showingProfileSheet: $showingProfileSheet,
                     showingSpaceSheet: $showingSpaceSheet,
+                    editingSpace: $editingSpace,
                     sidebarVisible: $sidebarVisible
                 )
                 .frame(width: 280)
@@ -53,11 +55,13 @@ struct NovaNavigationView: View {
         }
         .toolbar(.hidden)  // Hide the toolbar completely
         .animation(.easeInOut(duration: 0.3), value: sidebarVisible)
-        .sheet(isPresented: $showingProfileSheet) {
-            ProfileManagementView()
-        }
         .sheet(isPresented: $showingSpaceSheet) {
-            SpaceCreationView()
+            SpaceCreationView(editingSpace: editingSpace)
+        }
+        .onChange(of: showingSpaceSheet) { isShowing in
+            if !isShowing {
+                editingSpace = nil
+            }
         }
     }
 }
@@ -73,6 +77,7 @@ struct SidebarContentView: View {
     @Binding var selectedItem: SidebarItem?
     @Binding var showingProfileSheet: Bool
     @Binding var showingSpaceSheet: Bool
+    @Binding var editingSpace: Space?
     @Binding var sidebarVisible: Bool
     
     var body: some View {
@@ -182,11 +187,23 @@ struct SidebarContentView: View {
                     // Current Space Tabs Section
                     if let currentSpace = selectedSpace ?? spaces.first {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(currentSpace.name)
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 16)
+                            HStack {
+                                Text(currentSpace.name)
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                
+                                // Show profile indicator if space has a profile
+                                if let profile = currentSpace.profile {
+                                    Circle()
+                                        .fill(profile.displayColor.swiftUIColor)
+                                        .frame(width: 8, height: 8)
+                                        .help("Profile: \(profile.name)")
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
                             
                             // Bookmarks
                             let bookmarks = dataManager.loadBookmarks(for: currentSpace)
@@ -226,7 +243,8 @@ struct SidebarContentView: View {
             SpacesBottomBar(
                 spaces: spaces.sorted { $0.sortOrder < $1.sortOrder },
                 selectedSpace: $selectedSpace,
-                showingSpaceSheet: $showingSpaceSheet
+                showingSpaceSheet: $showingSpaceSheet,
+                editingSpace: $editingSpace
             )
         }
     }
@@ -252,6 +270,7 @@ struct SpacesBottomBar: View {
     let spaces: [Space]
     @Binding var selectedSpace: Space?
     @Binding var showingSpaceSheet: Bool
+    @Binding var editingSpace: Space?
     
     @StateObject private var dataManager = DataManager.shared
     
@@ -297,7 +316,9 @@ struct SpacesBottomBar: View {
                 SpaceButton(
                     space: space,
                     isSelected: selectedSpace?.id == space.id,
-                    onTap: { selectedSpace = space }
+                    onTap: { selectedSpace = space },
+                    editingSpace: $editingSpace,
+                    showingSpaceSheet: $showingSpaceSheet
                 )
             }
             
@@ -319,6 +340,8 @@ struct SpaceButton: View {
     let space: Space
     let isSelected: Bool
     let onTap: () -> Void
+    @Binding var editingSpace: Space?
+    @Binding var showingSpaceSheet: Bool
     
     @State private var showingContextMenu = false
     @StateObject private var dataManager = DataManager.shared
@@ -341,10 +364,18 @@ struct SpaceButton: View {
         .buttonStyle(PlainButtonStyle())
         .help(space.name) // Show name as tooltip on hover
         .contextMenu {
+            Button("Edit Space") {
+                editSpace(space)
+            }
             Button("Delete Space", role: .destructive) {
                 deleteSpace(space)
             }
         }
+    }
+    
+    private func editSpace(_ space: Space) {
+        editingSpace = space
+        showingSpaceSheet = true
     }
     
     private func deleteSpace(_ space: Space) {
@@ -592,6 +623,7 @@ struct FloatingWebContentView: View {
                 case .bookmark(let bookmark):
                     WebViewRepresentable(
                         url: URL(string: bookmark.url),
+                        profile: bookmark.space?.profile,
                         webView: $webView,
                         currentURL: $currentURL,
                         canGoBack: $canGoBack,
@@ -604,6 +636,7 @@ struct FloatingWebContentView: View {
                 case .tab(let tab):
                     WebViewRepresentable(
                         url: URL(string: tab.url),
+                        profile: tab.space?.profile,
                         webView: $webView,
                         currentURL: $currentURL,
                         canGoBack: $canGoBack,
@@ -616,6 +649,7 @@ struct FloatingWebContentView: View {
                 case .pinnedTab(let pinnedTab):
                     WebViewRepresentable(
                         url: URL(string: pinnedTab.url),
+                        profile: pinnedTab.profile,
                         webView: $webView,
                         currentURL: $currentURL,
                         canGoBack: $canGoBack,
@@ -680,6 +714,7 @@ struct FloatingWebContentView: View {
 
 struct WebViewRepresentable: NSViewRepresentable {
     let url: URL?
+    let profile: Profile?
     @Binding var webView: CustomWebKitView?
     @Binding var currentURL: String
     @Binding var canGoBack: Bool
@@ -690,7 +725,7 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
     
     func makeNSView(context: Context) -> CustomWebKitView {
-        let webView = CustomWebKitView()
+        let webView = CustomWebKitView(frame: .zero, profile: profile)
         
         // Store reference to webView immediately
         DispatchQueue.main.async {
@@ -969,11 +1004,19 @@ struct SpaceCreationView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var dataManager = DataManager.shared
     
+    let editingSpace: Space?
+    
     @State private var spaceName = ""
     @State private var selectedIcon = "folder"
     @State private var selectedColor = Color.green
+    @State private var selectedProfile: Profile?
+    @State private var showingProfileSheet = false
     
     let iconOptions = ["folder", "briefcase", "hammer", "person", "gamecontroller", "music.note", "photo", "book"]
+    
+    init(editingSpace: Space? = nil) {
+        self.editingSpace = editingSpace
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -984,14 +1027,14 @@ struct SpaceCreationView: View {
                 
                 Spacer()
                 
-                Text("New Space")
+                Text(editingSpace != nil ? "Edit Space" : "New Space")
                     .font(.headline)
                     .fontWeight(.semibold)
                 
                 Spacer()
                 
-                Button("Create") {
-                    createSpace()
+                Button(editingSpace != nil ? "Save" : "Create") {
+                    saveSpace()
                 }
                 .disabled(spaceName.isEmpty)
                 .buttonStyle(.borderedProminent)
@@ -1013,16 +1056,81 @@ struct SpaceCreationView: View {
                     
                     ColorPicker("Space Color", selection: $selectedColor)
                 }
+                
+                Section("Profile Assignment") {
+                    HStack {
+                        Picker("Profile", selection: $selectedProfile) {
+                            Text("Select a profile").tag(nil as Profile?)
+                            ForEach(dataManager.profiles, id: \.id) { profile in
+                                HStack {
+                                    Circle()
+                                        .fill(profile.displayColor.swiftUIColor)
+                                        .frame(width: 12, height: 12)
+                                    Text(profile.name)
+                                }
+                                .tag(profile as Profile?)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        
+                        Spacer()
+                        
+                        Button("Manage Profiles...") {
+                            showingProfileSheet = true
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption)
+                    }
+                    
+                    if selectedProfile != nil {
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.blue)
+                            Text("This space will have its own isolated browsing environment")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
             .formStyle(.grouped)
         }
         .frame(width: 400, height: 300)
+        .sheet(isPresented: $showingProfileSheet) {
+            ProfileManagementView()
+        }
+        .onAppear {
+            if let space = editingSpace {
+                spaceName = space.name
+                selectedIcon = space.iconName
+                selectedColor = space.displayColor.swiftUIColor
+                selectedProfile = space.profile
+            }
+        }
     }
     
-    private func createSpace() {
+    private func saveSpace() {
         Task { @MainActor in
             let colorHex = NSColor(selectedColor).hexString
-            await dataManager.createSpace(name: spaceName, iconName: selectedIcon, colorHex: colorHex)
+            
+            if let space = editingSpace {
+                // Update existing space
+                await dataManager.updateSpace(
+                    space,
+                    name: spaceName,
+                    iconName: selectedIcon,
+                    colorHex: colorHex,
+                    profile: selectedProfile
+                )
+            } else {
+                // Create new space
+                await dataManager.createSpace(
+                    name: spaceName, 
+                    iconName: selectedIcon, 
+                    colorHex: colorHex, 
+                    profile: selectedProfile
+                )
+            }
             dismiss()
         }
     }

@@ -241,10 +241,11 @@ class DataManager: ObservableObject {
     
     // MARK: - Space Management
     
-    func createSpace(name: String, iconName: String, colorHex: String) async {
-        guard let profile = currentProfile else { return }
+    func createSpace(name: String, iconName: String, colorHex: String, profile: Profile? = nil) async {
+        let targetProfile = profile ?? currentProfile
+        guard let targetProfile = targetProfile else { return }
         
-        let space = Space(name: name, iconName: iconName, colorHex: colorHex, profile: profile)
+        let space = Space(name: name, iconName: iconName, colorHex: colorHex, profile: targetProfile)
         space.sortOrder = spaces.count
         
         modelContext.insert(space)
@@ -252,7 +253,7 @@ class DataManager: ObservableObject {
         do {
             try modelContext.save()
             await loadSpaces()
-            print("DataManager: Created space: \(name)")
+            print("DataManager: Created space: \(name) for profile: \(targetProfile.name)")
         } catch {
             print("DataManager: Failed to create space: \(error)")
         }
@@ -261,6 +262,23 @@ class DataManager: ObservableObject {
     func switchSpace(_ space: Space) {
         currentSpace = space
         print("DataManager: Switched to space: \(space.name)")
+    }
+    
+    func updateSpace(_ space: Space, name: String, iconName: String, colorHex: String, profile: Profile?) async {
+        space.name = name
+        space.iconName = iconName
+        space.colorHex = colorHex
+        if let profile = profile {
+            space.profile = profile
+        }
+        
+        do {
+            try modelContext.save()
+            await loadSpaces()
+            print("DataManager: Updated space: \(name)")
+        } catch {
+            print("DataManager: Failed to update space: \(error)")
+        }
     }
     
     func deleteSpace(_ space: Space) async {

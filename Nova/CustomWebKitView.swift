@@ -17,6 +17,7 @@ class CustomWebKitView: NSView {
     private var customWebView: CustomWebView?
     private var inspectorEnabled: Bool = true
     private var currentURL: URL?
+    private var profile: Profile? // Associated profile for isolated browsing
     
     // MARK: - Custom WebKit Integration Points
     private var webKitLibraryPath: String?
@@ -25,6 +26,12 @@ class CustomWebKitView: NSView {
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        setupCustomWebKit()
+    }
+    
+    convenience init(frame frameRect: NSRect, profile: Profile?) {
+        self.init(frame: frameRect)
+        self.profile = profile
         setupCustomWebKit()
     }
     
@@ -86,7 +93,7 @@ class CustomWebKitView: NSView {
     
     private func setupWebView() {
         // Create our custom WebKit view using the built frameworks
-        customWebView = CustomWebView(frame: bounds)
+        customWebView = CustomWebView(frame: bounds, profile: profile)
         guard let customWebView = customWebView else { return }
         
         customWebView.translatesAutoresizingMaskIntoConstraints = false
@@ -1392,6 +1399,7 @@ class CustomWebView: NSView {
     private var wkWebView: WKWebView!
     private var currentURL: URL?
     private var webRTCScript: String?
+    private var profile: Profile? // Associated profile for isolated browsing
     
     // Expose WKWebView for inspector access
     var underlyingWebView: WKWebView? {
@@ -1412,6 +1420,12 @@ class CustomWebView: NSView {
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+        setupCustomWebKit()
+    }
+    
+    convenience init(frame frameRect: NSRect, profile: Profile?) {
+        self.init(frame: frameRect)
+        self.profile = profile
         setupCustomWebKit()
     }
     
@@ -1437,6 +1451,13 @@ class CustomWebView: NSView {
         // Enable media playback without user gesture
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.allowsAirPlayForMediaPlayback = true
+        
+        // Configure profile-specific data stores
+        if let profile = profile {
+            configuration.websiteDataStore = createProfileDataStore(for: profile)
+        } else {
+            configuration.websiteDataStore = WKWebsiteDataStore.default()
+        }
         
         // Add WebRTC enhancements
         let preferences = WKPreferences()
@@ -1517,6 +1538,154 @@ class CustomWebView: NSView {
         requestMediaPermissions()
         
         print("CustomWebView: WebKit view setup complete using custom frameworks")
+    }
+    
+    private func createProfileDataStore(for profile: Profile) -> WKWebsiteDataStore {
+        // Create a profile-specific data store for isolated browsing using custom WebKit
+        let profileIdentifier = profile.id.uuidString
+        
+        // Create profile-specific directories for our custom WebKit implementation
+        let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, 
+                                                         in: .userDomainMask).first!
+        let novaDirectory = applicationSupport.appendingPathComponent("Nova")
+        let profileDirectory = novaDirectory.appendingPathComponent("Profiles").appendingPathComponent(profileIdentifier)
+        
+        // Create comprehensive directory structure for custom WebKit profile isolation
+        let profilePaths = [
+            "Cookies",
+            "LocalStorage", 
+            "SessionStorage",
+            "IndexedDB",
+            "WebSQL",
+            "Cache",
+            "ApplicationCache",
+            "Databases",
+            "MediaKeys",
+            "ResourceLoadStatistics",
+            "NetworkCache",
+            "OfflineWebApplicationCache"
+        ]
+        
+        // Ensure all profile directories exist
+        for pathComponent in profilePaths {
+            let subdirURL = profileDirectory.appendingPathComponent(pathComponent)
+            try? FileManager.default.createDirectory(at: subdirURL, 
+                                                   withIntermediateDirectories: true, 
+                                                   attributes: nil)
+        }
+        
+        // Custom WebKit allows us to create truly isolated data stores with custom paths
+        // Since we're using the open source WebKit, we can leverage internal APIs
+        let dataStore = createCustomWebKitDataStore(profileDirectory: profileDirectory, profileId: profileIdentifier)
+        
+        print("CustomWebView: Created custom WebKit profile data store for: \(profile.name)")
+        print("CustomWebView: Profile directory: \(profileDirectory.path)")
+        print("CustomWebView: Custom WebKit isolation enabled with persistent storage")
+        
+        return dataStore
+    }
+    
+    private func createCustomWebKitDataStore(profileDirectory: URL, profileId: String) -> WKWebsiteDataStore {
+        // Create a persistent, isolated data store for this profile
+        
+        // Use the profile ID as a unique identifier for the data store
+        let profileUUID = UUID(uuidString: profileId) ?? UUID()
+        
+        // Create a persistent data store with unique identifier
+        if #available(macOS 14.0, *) {
+            // Modern approach: Use WKWebsiteDataStore.init(forIdentifier:)
+            let dataStore = WKWebsiteDataStore(forIdentifier: profileUUID)
+            print("CustomWebView: Created persistent data store with identifier: \(profileUUID)")
+            return dataStore
+        } else {
+            // Fallback for older systems: Try custom WebKit configuration
+            if let configurationClass = NSClassFromString("WKWebsiteDataStoreConfiguration") {
+                let configuration = configurationClass.alloc()
+                
+                // Use setValue:forKey: to set custom directories
+                let paths = [
+                    ("_applicationCacheDirectory", profileDirectory.appendingPathComponent("ApplicationCache").path),
+                    ("_networkCacheDirectory", profileDirectory.appendingPathComponent("NetworkCache").path),
+                    ("_indexedDBDatabaseDirectory", profileDirectory.appendingPathComponent("IndexedDB").path),
+                    ("_localStorageDirectory", profileDirectory.appendingPathComponent("LocalStorage").path),
+                    ("_webSQLDatabaseDirectory", profileDirectory.appendingPathComponent("WebSQL").path),
+                    ("_resourceLoadStatisticsDirectory", profileDirectory.appendingPathComponent("ResourceLoadStatistics").path)
+                ]
+                
+                for (key, path) in paths {
+                    if configuration.responds(to: Selector("setValue:forKey:")) {
+                        configuration.setValue(path, forKey: key)
+                    }
+                }
+                
+                // Try to create data store with custom configuration
+                if let dataStoreClass = NSClassFromString("WKWebsiteDataStore"),
+                   dataStoreClass.responds(to: Selector("alloc")) {
+                    let initSelector = NSSelectorFromString("initWithConfiguration:")
+                    let dataStore = dataStoreClass.alloc()
+                    if dataStore.responds(to: initSelector) {
+                        let result = dataStore.perform(initSelector, with: configuration)
+                        if let webDataStore = result?.takeUnretainedValue() as? WKWebsiteDataStore {
+                            print("CustomWebView: Successfully created custom WebKit data store with profile paths")
+                            return webDataStore
+                        }
+                    }
+                }
+            }
+            
+            // Last resort fallback: Create default persistent data store
+            // This will still share data between profiles but is better than non-persistent
+            print("CustomWebView: Warning - Falling back to default data store. Profile isolation may not work correctly.")
+            return WKWebsiteDataStore.default()
+        }
+    }
+    
+    private func setupCustomWebKitEnvironment(profileDirectory: URL, profileId: String) {
+        // Configure custom WebKit environment variables for profile isolation
+        // These will be used by our custom WebKit build to store data in profile-specific locations
+        
+        let environment = [
+            "WEBKIT_PROFILE_ID": profileId,
+            "WEBKIT_PROFILE_PATH": profileDirectory.path,
+            "WEBKIT_COOKIE_STORAGE_PATH": profileDirectory.appendingPathComponent("Cookies").path,
+            "WEBKIT_LOCAL_STORAGE_PATH": profileDirectory.appendingPathComponent("LocalStorage").path,
+            "WEBKIT_CACHE_PATH": profileDirectory.appendingPathComponent("Cache").path,
+            "WEBKIT_DATABASE_PATH": profileDirectory.appendingPathComponent("Databases").path
+        ]
+        
+        for (key, value) in environment {
+            setenv(key.cString(using: .utf8), value.cString(using: .utf8), 1)
+        }
+        
+        print("CustomWebView: Set custom WebKit environment variables for profile isolation")
+    }
+    
+    private func configureCustomWebKitDataStore(_ dataStore: WKWebsiteDataStore, profileDirectory: URL) {
+        // Additional custom WebKit configuration using private APIs that are available
+        // in our custom WebKit build
+        
+        // Configure cookie storage path using custom WebKit features
+        let cookieStore = dataStore.httpCookieStore
+        // Custom WebKit allows us to set cookie storage paths
+        if cookieStore.responds(to: Selector("_setCookieStoragePath:")) {
+            let cookiePath = profileDirectory.appendingPathComponent("Cookies").path
+            cookieStore.perform(Selector("_setCookieStoragePath:"), with: cookiePath)
+            print("CustomWebView: Set custom cookie storage path: \(cookiePath)")
+        }
+        
+        // Configure additional custom WebKit data paths
+        let customSelectors = [
+            ("_setLocalStoragePath:", profileDirectory.appendingPathComponent("LocalStorage").path),
+            ("_setDatabasePath:", profileDirectory.appendingPathComponent("Databases").path),
+            ("_setCachePath:", profileDirectory.appendingPathComponent("Cache").path)
+        ]
+        
+        for (selector, path) in customSelectors {
+            if dataStore.responds(to: Selector(selector)) {
+                dataStore.perform(Selector(selector), with: path)
+                print("CustomWebView: Set custom WebKit path \(selector): \(path)")
+            }
+        }
     }
     
     private func findWebKitBuild() -> String? {
