@@ -259,30 +259,58 @@ struct SpacesBottomBar: View {
         VStack(spacing: 8) {
             Divider()
             
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(spaces) { space in
-                        SpaceButton(
-                            space: space,
-                            isSelected: selectedSpace?.id == space.id,
-                            onTap: { selectedSpace = space }
-                        )
+            // Center the buttons and only scroll if needed
+            HStack {
+                if needsScrolling {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        buttonRow
                     }
-                    
-                    // Add Space Button
-                    Button(action: { showingSpaceSheet = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 32, height: 32)
-                            .background(Color.secondary.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(PlainButtonStyle())
+                } else {
+                    Spacer()
+                    buttonRow
+                    Spacer()
                 }
-                .padding(.horizontal, 12)
             }
             .frame(height: 44)
+            .padding(.horizontal, 12)
+        }
+    }
+    
+    private var needsScrolling: Bool {
+        // Calculate if we need scrolling based on number of items and available width
+        let buttonWidth: CGFloat = 36
+        let spacing: CGFloat = 8
+        let addButtonWidth: CGFloat = 36
+        let padding: CGFloat = 24 // 12 on each side
+        let sidebarWidth: CGFloat = 280
+        
+        let totalWidth = CGFloat(spaces.count) * buttonWidth + 
+                        CGFloat(spaces.count - 1) * spacing + 
+                        addButtonWidth + spacing + padding
+        
+        return totalWidth > sidebarWidth
+    }
+    
+    private var buttonRow: some View {
+        HStack(spacing: 8) {
+            ForEach(spaces) { space in
+                SpaceButton(
+                    space: space,
+                    isSelected: selectedSpace?.id == space.id,
+                    onTap: { selectedSpace = space }
+                )
+            }
+            
+            // Add Space Button
+            Button(action: { showingSpaceSheet = true }) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .frame(width: 36, height: 36)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
 }
@@ -297,26 +325,21 @@ struct SpaceButton: View {
     
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 2) {
-                Image(systemName: space.iconName)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(isSelected ? .white : space.displayColor.swiftUIColor)
-                    .frame(width: 32, height: 24)
-                
-                Text(space.name)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .foregroundColor(isSelected ? .white : .primary)
-            }
-            .frame(minWidth: 60)
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? space.displayColor.swiftUIColor : Color.clear)
-            )
+            Image(systemName: space.iconName)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(isSelected ? .white : space.displayColor.swiftUIColor)
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isSelected ? space.displayColor.swiftUIColor : Color.clear)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(space.displayColor.swiftUIColor.opacity(0.3), lineWidth: isSelected ? 0 : 1)
+                        )
+                )
         }
         .buttonStyle(PlainButtonStyle())
+        .help(space.name) // Show name as tooltip on hover
         .contextMenu {
             Button("Delete Space", role: .destructive) {
                 deleteSpace(space)
@@ -872,7 +895,29 @@ struct ProfileManagementView: View {
     @State private var selectedColor = Color.blue
     
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button("Done") { dismiss() }
+                    .buttonStyle(PlainButtonStyle())
+                
+                Spacer()
+                
+                Text("Manage Profiles")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // Invisible button for balance
+                Button("") { }
+                    .opacity(0)
+                    .disabled(true)
+            }
+            .padding()
+            .background(.regularMaterial)
+            
+            // Form content
             Form {
                 Section("Create New Profile") {
                     TextField("Profile Name", text: $newProfileName)
@@ -882,6 +927,7 @@ struct ProfileManagementView: View {
                         createProfile()
                     }
                     .disabled(newProfileName.isEmpty)
+                    .buttonStyle(.borderedProminent)
                 }
                 
                 Section("Existing Profiles") {
@@ -904,13 +950,9 @@ struct ProfileManagementView: View {
                     }
                 }
             }
-            .navigationTitle("Manage Profiles")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .formStyle(.grouped)
         }
+        .frame(width: 500, height: 400)
     }
     
     private func createProfile() {
@@ -934,7 +976,30 @@ struct SpaceCreationView: View {
     let iconOptions = ["folder", "briefcase", "hammer", "person", "gamecontroller", "music.note", "photo", "book"]
     
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(PlainButtonStyle())
+                
+                Spacer()
+                
+                Text("New Space")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("Create") {
+                    createSpace()
+                }
+                .disabled(spaceName.isEmpty)
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .background(.regularMaterial)
+            
+            // Form content
             Form {
                 Section("Space Details") {
                     TextField("Space Name", text: $spaceName)
@@ -948,21 +1013,10 @@ struct SpaceCreationView: View {
                     
                     ColorPicker("Space Color", selection: $selectedColor)
                 }
-                
-                Section {
-                    Button("Create Space") {
-                        createSpace()
-                    }
-                    .disabled(spaceName.isEmpty)
-                }
             }
-            .navigationTitle("New Space")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
+            .formStyle(.grouped)
         }
+        .frame(width: 400, height: 300)
     }
     
     private func createSpace() {
