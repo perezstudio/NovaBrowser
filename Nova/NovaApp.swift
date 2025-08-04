@@ -168,6 +168,10 @@ extension AppDelegate {
     }
     
     @objc func showJavaScriptConsole() {
-        showWebInspector() // Same as inspector for now
+        // Find the current browser window and show inspector console
+        if let keyWindow = NSApp.keyWindow,
+           let browserWindow = browserWindows.first(where: { $0.window == keyWindow }) {
+            browserWindow.showInspectorConsole()
+        }
     }
 }

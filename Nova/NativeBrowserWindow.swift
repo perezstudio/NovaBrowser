@@ -206,6 +206,22 @@ class NativeBrowserWindow: NSWindowController {
         openDebugTools()
     }
     
+    @objc public func showInspectorConsole() {
+        customWebKitView?.showInspectorConsole()
+    }
+    
+    @objc public func showInspectorElements() {
+        customWebKitView?.showInspectorElements()
+    }
+    
+    @objc public func showInspectorSources() {
+        customWebKitView?.showInspectorSources()
+    }
+    
+    @objc public func toggleElementSelection() {
+        customWebKitView?.toggleElementSelection()
+    }
+    
     private func updateButtons() {
         backButton.isEnabled = customWebKitView?.canGoBack ?? false
         forwardButton.isEnabled = customWebKitView?.canGoForward ?? false

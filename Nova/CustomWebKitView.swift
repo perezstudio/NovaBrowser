@@ -416,12 +416,91 @@ class CustomWebKitView: NSView {
     // MARK: - Inspector Integration
     
     func showInspector() {
+        guard let webView = customWebView?.underlyingWebView else {
+            print("WebView not available for inspector")
+            return
+        }
+        
+        print("Opening WebKit built-in inspector...")
+        
+        // Use WebKit's built-in inspector instead of custom implementation
+        if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
+            // Connect and show the inspector
+            inspector.perform(Selector(("connect")))
+            inspector.perform(Selector(("show")))
+            print("WebKit inspector opened successfully")
+        } else {
+            print("WebKit inspector not available - make sure developer extras are enabled")
+            // Fallback to custom inspector if WebKit inspector is not available
+            showCustomInspector()
+        }
+    }
+    
+    func showInspectorConsole() {
+        guard let webView = customWebView?.underlyingWebView else {
+            print("WebView not available for inspector")
+            return
+        }
+        
+        if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
+            inspector.perform(Selector(("connect")))
+            inspector.perform(Selector(("showConsole")))
+            print("WebKit inspector console opened successfully")
+        } else {
+            showCustomInspector()
+        }
+    }
+    
+    func showInspectorElements() {
+        guard let webView = customWebView?.underlyingWebView else {
+            print("WebView not available for inspector")
+            return
+        }
+        
+        if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
+            inspector.perform(Selector(("connect")))
+            inspector.perform(Selector(("show")))
+            print("WebKit inspector elements tab opened successfully")
+        } else {
+            showCustomInspector()
+        }
+    }
+    
+    func showInspectorSources() {
+        guard let webView = customWebView?.underlyingWebView else {
+            print("WebView not available for inspector")
+            return
+        }
+        
+        if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
+            inspector.perform(Selector(("connect")))
+            inspector.perform(Selector(("showResources")))
+            print("WebKit inspector sources tab opened successfully")
+        } else {
+            showCustomInspector()
+        }
+    }
+    
+    func toggleElementSelection() {
+        guard let webView = customWebView?.underlyingWebView else {
+            print("WebView not available for inspector")
+            return
+        }
+        
+        if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
+            inspector.perform(Selector(("connect")))
+            inspector.perform(Selector(("toggleElementSelection")))
+            print("WebKit inspector element selection toggled")
+        }
+    }
+    
+    private func showCustomInspector() {
         guard let backend = inspectorBackend else {
             print("Inspector backend not available")
             return
         }
         
-        print("Opening custom WebKit inspector...")
+        print("Opening custom WebKit inspector as fallback...")
         backend.showInspector(with: customWebView)
     }
     
@@ -1161,6 +1240,11 @@ class CustomWebView: NSView {
     private var currentURL: URL?
     private var webRTCScript: String?
     
+    // Expose WKWebView for inspector access
+    var underlyingWebView: WKWebView? {
+        return wkWebView
+    }
+    
     var url: URL? {
         return wkWebView?.url ?? currentURL
     }
@@ -1210,6 +1294,14 @@ class CustomWebView: NSView {
             preferences.isElementFullscreenEnabled = true
         }
         preferences.setValue(true, forKey: "developerExtrasEnabled")
+        
+        // Enable WebKit inspector using private API - use proper method
+        if preferences.responds(to: Selector("_setDeveloperExtrasEnabled:")) {
+            preferences.perform(Selector("_setDeveloperExtrasEnabled:"), with: true)
+        } else {
+            // Fallback for older versions or if the API changes
+            print("Warning: Unable to enable developer extras - WebKit inspector may not be available")
+        }
         
         configuration.preferences = preferences
         
@@ -1348,6 +1440,69 @@ class CustomWebView: NSView {
             wkWebView.configuration.userContentController.addUserScript(userScript)
         }
     }
+    
+    // MARK: - Context Menu Support
+    
+    override func rightMouseDown(with event: NSEvent) {
+        print("CustomWebView: Right mouse down - showing context menu")
+        showContextMenu(with: event)
+    }
+    
+    private func showContextMenu(with event: NSEvent) {
+        let contextMenu = NSMenu()
+        
+        // Add "Inspect Element" item
+        let inspectItem = NSMenuItem(title: "Inspect Element", action: #selector(inspectElementFromContext), keyEquivalent: "")
+        inspectItem.target = self
+        contextMenu.addItem(inspectItem)
+        
+        // Add separator and standard items
+        contextMenu.addItem(NSMenuItem.separator())
+        
+        let reloadItem = NSMenuItem(title: "Reload", action: #selector(reloadFromContext), keyEquivalent: "")
+        reloadItem.target = self
+        contextMenu.addItem(reloadItem)
+        
+        let backItem = NSMenuItem(title: "Back", action: #selector(backFromContext), keyEquivalent: "")
+        backItem.target = self
+        backItem.isEnabled = canGoBack
+        contextMenu.addItem(backItem)
+        
+        let forwardItem = NSMenuItem(title: "Forward", action: #selector(forwardFromContext), keyEquivalent: "")
+        forwardItem.target = self
+        forwardItem.isEnabled = canGoForward
+        contextMenu.addItem(forwardItem)
+        
+        // Show the context menu
+        NSMenu.popUpContextMenu(contextMenu, with: event, for: self)
+    }
+    
+    @objc private func inspectElementFromContext() {
+        print("CustomWebView: Inspect element requested from context menu")
+        
+        // Get the parent CustomWebKitView and show inspector
+        var currentView: NSView? = self
+        while currentView != nil {
+            if let webKitView = currentView as? CustomWebKitView {
+                webKitView.showInspector()
+                webKitView.toggleElementSelection()
+                break
+            }
+            currentView = currentView?.superview
+        }
+    }
+    
+    @objc private func reloadFromContext() {
+        reload()
+    }
+    
+    @objc private func backFromContext() {
+        goBack()
+    }
+    
+    @objc private func forwardFromContext() {
+        goForward()
+    }
 }
 
 // MARK: - WKNavigationDelegate
@@ -1457,4 +1612,5 @@ extension CustomWebView: WKUIDelegate {
             completionHandler(nil)
         }
     }
+    
 }
