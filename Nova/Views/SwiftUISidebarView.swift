@@ -30,7 +30,9 @@ struct NovaNavigationView: View {
                     sidebarVisible: $sidebarVisible
                 )
                 .frame(width: 280)
-                .background(.regularMaterial, in: Rectangle())
+                .background(
+                    VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
+                )
                 .transition(.move(edge: .leading))
             }
             
@@ -74,62 +76,7 @@ struct SidebarContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Main content area with tabs
-            List(selection: $selectedItem) {
-                // Profile Section
-                Section {
-                    ProfileSelectorView(showingProfileSheet: $showingProfileSheet)
-                }
-                
-                // Pinned Tabs Section
-                if let currentProfile = dataManager.currentProfile {
-                    let pinnedTabs = getPinnedTabs(for: currentProfile)
-                    if !pinnedTabs.isEmpty {
-                        Section("Pinned") {
-                            ForEach(pinnedTabs) { pinnedTab in
-                                PinnedTabRow(pinnedTab: pinnedTab)
-                                    .tag(SidebarItem.pinnedTab(pinnedTab))
-                            }
-                        }
-                    }
-                }
-                
-                // Current Space Tabs Section
-                if let currentSpace = selectedSpace ?? spaces.first {
-                    Section(currentSpace.name) {
-                        // Bookmarks
-                        let bookmarks = dataManager.loadBookmarks(for: currentSpace)
-                        ForEach(bookmarks, id: \.id) { bookmark in
-                            BookmarkRow(bookmark: bookmark)
-                                .tag(SidebarItem.bookmark(bookmark))
-                        }
-                        
-                        // Tabs
-                        let tabs = dataManager.loadTabs(for: currentSpace)
-                        ForEach(tabs, id: \.id) { tab in
-                            TabRow(tab: tab)
-                                .tag(SidebarItem.tab(tab))
-                        }
-                        
-                        // Add Tab Button
-                        Button(action: { createNewTab(in: currentSpace) }) {
-                            Label("New Tab", systemImage: "plus")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-            }
-            .listStyle(SidebarListStyle())
-            
-            // Bottom spaces bar
-            SpacesBottomBar(
-                spaces: spaces.sorted { $0.sortOrder < $1.sortOrder },
-                selectedSpace: $selectedSpace,
-                showingSpaceSheet: $showingSpaceSheet
-            )
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            // Custom traffic lights + sidebar controls
+            // Traffic lights header - same height as URL bar
             HStack(spacing: 0) {
                 // Custom traffic light buttons
                 HStack(spacing: 8) {
@@ -185,7 +132,7 @@ struct SidebarContentView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
-                .padding(.leading, 20)
+                .padding(.leading, 12)
                 
                 Spacer()
                 
@@ -198,8 +145,88 @@ struct SidebarContentView: View {
                 .buttonStyle(PlainButtonStyle())
                 .padding(.trailing, 12)
             }
-            .frame(height: 28)
-            .background(.regularMaterial)
+            .padding(.vertical, 12)
+            .overlay(
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(Color(NSColor.separatorColor))
+                    .opacity(0.5),
+                alignment: .bottom
+            )
+            
+            // Main content area with custom scroll view
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Pinned Tabs Section
+                    if let currentProfile = dataManager.currentProfile {
+                        let pinnedTabs = getPinnedTabs(for: currentProfile)
+                        if !pinnedTabs.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Pinned")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ForEach(pinnedTabs) { pinnedTab in
+                                    Button(action: { selectedItem = .pinnedTab(pinnedTab) }) {
+                                        PinnedTabRow(pinnedTab: pinnedTab)
+                                    }
+                                    .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .pinnedTab(pinnedTab)))
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Current Space Tabs Section
+                    if let currentSpace = selectedSpace ?? spaces.first {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(currentSpace.name)
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 16)
+                            
+                            // Bookmarks
+                            let bookmarks = dataManager.loadBookmarks(for: currentSpace)
+                            ForEach(bookmarks, id: \.id) { bookmark in
+                                Button(action: { selectedItem = .bookmark(bookmark) }) {
+                                    BookmarkRow(bookmark: bookmark)
+                                }
+                                .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .bookmark(bookmark)))
+                            }
+                            
+                            // Tabs
+                            let tabs = dataManager.loadTabs(for: currentSpace)
+                            ForEach(tabs, id: \.id) { tab in
+                                Button(action: { selectedItem = .tab(tab) }) {
+                                    TabRow(tab: tab)
+                                }
+                                .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .tab(tab)))
+                            }
+                            
+                            // Add Tab Button
+                            Button(action: { createNewTab(in: currentSpace) }) {
+                                Label("New Tab", systemImage: "plus")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                }
+                .padding(.vertical, 12)
+            }
+            
+            // Bottom spaces bar
+            SpacesBottomBar(
+                spaces: spaces.sorted { $0.sortOrder < $1.sortOrder },
+                selectedSpace: $selectedSpace,
+                showingSpaceSheet: $showingSpaceSheet
+            )
         }
     }
     
@@ -219,41 +246,6 @@ struct SidebarContentView: View {
     }
 }
 
-struct ProfileSelectorView: View {
-    @StateObject private var dataManager = DataManager.shared
-    @Binding var showingProfileSheet: Bool
-    
-    var body: some View {
-        HStack {
-            Circle()
-                .fill(dataManager.currentProfile?.displayColor.swiftUIColor ?? Color.blue)
-                .frame(width: 20, height: 20)
-            
-            Text(dataManager.currentProfile?.name ?? "Default")
-                .font(.headline)
-            
-            Spacer()
-            
-            Menu {
-                ForEach(dataManager.profiles, id: \.id) { profile in
-                    Button(profile.name) {
-                        Task { @MainActor in
-                            await dataManager.switchProfile(profile)
-                        }
-                    }
-                }
-                Divider()
-                Button("New Profile...") { showingProfileSheet = true }
-                Button("Manage Profiles...") { showingProfileSheet = true }
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
 
 struct SpacesBottomBar: View {
     let spaces: [Space]
@@ -291,7 +283,6 @@ struct SpacesBottomBar: View {
             }
             .frame(height: 44)
         }
-        .background(Color(NSColor.controlBackgroundColor))
     }
 }
 
@@ -465,13 +456,15 @@ struct FloatingWebContentView: View {
         VStack(spacing: 0) {
             // Custom URL bar
             HStack(spacing: 12) {
-                // Sidebar toggle button
-                Button(action: { sidebarVisible.toggle() }) {
-                    Image(systemName: sidebarVisible ? "sidebar.left" : "sidebar.right")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.secondary)
+                // Sidebar toggle button - only show when sidebar is closed
+                if !sidebarVisible {
+                    Button(action: { sidebarVisible.toggle() }) {
+                        Image(systemName: "sidebar.right")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
                 
                 // Navigation buttons
                 HStack(spacing: 8) {
@@ -555,7 +548,7 @@ struct FloatingWebContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(.regularMaterial)
+            .background(.ultraThinMaterial)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
@@ -565,32 +558,48 @@ struct FloatingWebContentView: View {
             )
             
             // Web content
-            Group {
-                if let selectedItem = selectedItem {
-                    switch selectedItem {
-                    case .bookmark(let bookmark):
-                        WebViewRepresentable(url: URL(string: bookmark.url))
-                            .onAppear {
-                                currentURL = bookmark.url
-                            }
-                    case .tab(let tab):
-                        WebViewRepresentable(url: URL(string: tab.url))
-                            .onAppear {
-                                currentURL = tab.url
-                            }
-                    case .pinnedTab(let pinnedTab):
-                        WebViewRepresentable(url: URL(string: pinnedTab.url))
-                            .onAppear {
-                                currentURL = pinnedTab.url
-                            }
-                    }
-                } else {
-                    ContentUnavailableView(
-                        "No Selection",
-                        systemImage: "globe",
-                        description: Text("Select an item from the sidebar to start browsing")
-                    )
+            if let selectedItem = selectedItem {
+                switch selectedItem {
+                case .bookmark(let bookmark):
+                    WebViewRepresentable(url: URL(string: bookmark.url))
+                        .onAppear {
+                            currentURL = bookmark.url
+                        }
+                case .tab(let tab):
+                    WebViewRepresentable(url: URL(string: tab.url))
+                        .onAppear {
+                            currentURL = tab.url
+                        }
+                case .pinnedTab(let pinnedTab):
+                    WebViewRepresentable(url: URL(string: pinnedTab.url))
+                        .onAppear {
+                            currentURL = pinnedTab.url
+                        }
                 }
+            } else {
+                // Empty state that fills the entire area below the URL bar
+                VStack {
+                    Spacer()
+                    
+                    Image(systemName: "globe")
+                        .font(.system(size: 64))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    
+                    Text("No Selection")
+                        .font(.title2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 8)
+                    
+                    Text("Select an item from the sidebar to start browsing")
+                        .font(.body)
+                        .foregroundColor(.secondary.opacity(0.8))
+                        .padding(.top, 2)
+                    
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(NSColor.windowBackgroundColor))
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
@@ -712,6 +721,44 @@ struct RoundedCorner: Shape {
         }
         
         return path
+    }
+}
+
+// MARK: - Visual Effect View for True Transparency
+
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Custom Button Style
+
+struct SidebarItemButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.accentColor.opacity(0.2) : (configuration.isPressed ? Color.gray.opacity(0.1) : Color.clear))
+            )
+            .contentShape(Rectangle())
     }
 }
 
