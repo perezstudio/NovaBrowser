@@ -421,18 +421,30 @@ class CustomWebKitView: NSView {
             return
         }
         
-        print("Opening WebKit built-in inspector...")
+        print("Opening web inspector...")
         
-        // Use WebKit's built-in inspector instead of custom implementation
+        // Try WebKit's built-in inspector first, but with timeout fallback
+        var inspectorShown = false
+        
         if let inspector = webView.value(forKey: "_inspector") as AnyObject? {
-            // Connect and show the inspector
-            inspector.perform(Selector(("connect")))
-            inspector.perform(Selector(("show")))
-            print("WebKit inspector opened successfully")
-        } else {
-            print("WebKit inspector not available - make sure developer extras are enabled")
-            // Fallback to custom inspector if WebKit inspector is not available
-            showCustomInspector()
+            print("Found WebKit inspector object, attempting to show...")
+            
+            // Try to show the inspector
+            if inspector.responds(to: Selector("show")) {
+                inspector.perform(Selector("show"))
+                inspectorShown = true
+            }
+            
+            if inspector.responds(to: Selector("connect")) {
+                inspector.perform(Selector("connect"))
+            }
+        }
+        
+        // Always show custom inspector as it's more reliable
+        // Use a slight delay to see if WebKit inspector appears first
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("Opening enhanced custom inspector with WebKit debugging capabilities...")
+            self.showCustomInspector()
         }
     }
     
@@ -753,39 +765,130 @@ class InspectorWindow: NSWindowController {
         let textView = NSTextView()
         textView.isEditable = false
         textView.backgroundColor = NSColor.controlBackgroundColor
-        textView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         textView.string = """
-        DOM Inspector - WebRTC Elements
-        ==============================
+        Enhanced DOM Inspector - Nova Browser
+        ====================================
         
-        📺 Video Elements:
-        <video> tags with WebRTC streams will appear here
-        
-        🎤 Audio Elements:
-        <audio> tags with WebRTC streams will appear here
-        
-        📡 WebRTC Objects:
-        • RTCPeerConnection instances
-        • MediaStream objects
-        • RTCDataChannel connections
-        
-        🔍 Media Constraints:
-        Current getUserMedia constraints will be displayed here
-        
-        [Refresh page to see live DOM elements]
+        Loading page structure...
         """
         
         scrollView.documentView = textView
         view.addSubview(scrollView)
         
+        // Add refresh button for DOM
+        let refreshButton = NSButton(title: "Refresh DOM", target: self, action: #selector(refreshDOMView))
+        refreshButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(refreshButton)
+        
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8)
+            scrollView.bottomAnchor.constraint(equalTo: refreshButton.topAnchor, constant: -8),
+            
+            refreshButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            refreshButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
+            refreshButton.heightAnchor.constraint(equalToConstant: 28)
         ])
         
+        // Auto-populate DOM info when inspector opens
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            self.populateDOMView(textView: textView)
+        }
+        
         return view
+    }
+    
+    @objc private func refreshDOMView() {
+        // Find the elements tab and refresh its content
+        guard tabView.numberOfTabViewItems > 0 else { return }
+        let elementsTab = tabView.tabViewItem(at: 0) // Elements is the first tab
+        
+        if let scrollView = elementsTab.view?.subviews.first as? NSScrollView,
+           let textView = scrollView.documentView as? NSTextView {
+            populateDOMView(textView: textView)
+        }
+    }
+    
+    private func populateDOMView(textView: NSTextView) {
+        guard let webView = webView else { return }
+        
+        textView.string = "Enhanced DOM Inspector - Nova Browser\n====================================\n\nAnalyzing page structure...\n\n"
+        
+        // Get comprehensive DOM information
+        let domScript = """
+        (function() {
+            const info = {
+                title: document.title,
+                url: window.location.href,
+                doctype: document.doctype ? document.doctype.name : 'html',
+                elements: document.querySelectorAll('*').length,
+                scripts: document.querySelectorAll('script').length,
+                stylesheets: document.querySelectorAll('link[rel="stylesheet"]').length,
+                images: document.querySelectorAll('img').length,
+                videos: document.querySelectorAll('video').length,
+                audios: document.querySelectorAll('audio').length,
+                forms: document.querySelectorAll('form').length,
+                inputs: document.querySelectorAll('input').length,
+                headContent: document.head.innerHTML.substring(0, 500),
+                bodyStructure: Array.from(document.body.children).map(el => 
+                    el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + 
+                    (el.className ? '.' + el.className.split(' ').join('.') : '')
+                ).slice(0, 20)
+            };
+            return JSON.stringify(info, null, 2);
+        })();
+        """
+        
+        webView.evaluateJavaScript(domScript) { result, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    textView.string += "Error analyzing DOM: \(error.localizedDescription)\n"
+                } else if let jsonString = result as? String,
+                          let data = jsonString.data(using: .utf8),
+                          let info = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
+                    
+                    var domInfo = "📄 PAGE INFORMATION:\n"
+                    domInfo += "Title: \(info["title"] as? String ?? "Unknown")\n"
+                    domInfo += "URL: \(info["url"] as? String ?? "Unknown")\n"
+                    domInfo += "Document Type: \(info["doctype"] as? String ?? "html")\n\n"
+                    
+                    domInfo += "📊 ELEMENT COUNTS:\n"
+                    domInfo += "Total Elements: \(info["elements"] as? Int ?? 0)\n"
+                    domInfo += "Scripts: \(info["scripts"] as? Int ?? 0)\n"
+                    domInfo += "Stylesheets: \(info["stylesheets"] as? Int ?? 0)\n"
+                    domInfo += "Images: \(info["images"] as? Int ?? 0)\n"
+                    domInfo += "Videos: \(info["videos"] as? Int ?? 0)\n"
+                    domInfo += "Audio Elements: \(info["audios"] as? Int ?? 0)\n"
+                    domInfo += "Forms: \(info["forms"] as? Int ?? 0)\n"
+                    domInfo += "Input Fields: \(info["inputs"] as? Int ?? 0)\n\n"
+                    
+                    if let bodyStructure = info["bodyStructure"] as? [String] {
+                        domInfo += "🏗️ BODY STRUCTURE:\n"
+                        for (index, element) in bodyStructure.enumerated() {
+                            domInfo += "\(index + 1). \(element)\n"
+                        }
+                        domInfo += "\n"
+                    }
+                    
+                    if let headContent = info["headContent"] as? String {
+                        domInfo += "📋 HEAD CONTENT (first 500 chars):\n"
+                        domInfo += headContent + "\n...\n\n"
+                    }
+                    
+                    domInfo += "💡 Use Console tab to inspect specific elements:\n"
+                    domInfo += "• document.querySelector('selector')\n"
+                    domInfo += "• document.getElementById('id')\n"
+                    domInfo += "• document.getElementsByClassName('class')\n"
+                    
+                    textView.string = "Enhanced DOM Inspector - Nova Browser\n====================================\n\n" + domInfo
+                }
+                
+                // Scroll to top
+                textView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+            }
+        }
     }
     
     private func createConsoleView() -> NSView {
@@ -802,26 +905,41 @@ class InspectorWindow: NSWindowController {
         consoleTextView.textColor = NSColor.green
         consoleTextView.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         consoleTextView.string = """
-        Custom WebKit Console
-        =====================
-        > Ready for JavaScript execution...
+        Enhanced WebKit Console - Nova Browser
+        =====================================
+        > Ready for JavaScript execution and debugging...
         
-        Try these WebRTC debugging commands:
+        🔧 WebKit Debugging Commands:
+        • document.title
+        • window.location.href
+        • navigator.userAgent
+        • document.querySelectorAll('*').length
+        
+        🌐 WebRTC Commands:
         • navigator.mediaDevices.enumerateDevices()
         • navigator.mediaDevices.getUserMedia({video: true, audio: true})
         • typeof RTCPeerConnection
         • typeof MediaStream
-        • console.log('WebRTC test')
+        
+        📊 Performance Commands:
+        • performance.now()
+        • performance.getEntriesByType('navigation')
+        • console.time('test'); console.timeEnd('test')
+        
+        💡 DOM Inspection:
+        • document.body.innerHTML
+        • document.head.innerHTML
+        • window.getComputedStyle(document.body)
         
         """
         
         scrollView.documentView = consoleTextView
         view.addSubview(scrollView)
         
-        // Console input
+        // Console input with enhanced functionality
         consoleInput = NSTextField()
         consoleInput.translatesAutoresizingMaskIntoConstraints = false
-        consoleInput.placeholderString = "Enter JavaScript..."
+        consoleInput.placeholderString = "Enter JavaScript (press Tab for autocomplete suggestions)..."
         consoleInput.target = self
         consoleInput.action = #selector(executeConsoleCommand)
         view.addSubview(consoleInput)
@@ -838,7 +956,42 @@ class InspectorWindow: NSWindowController {
             consoleInput.heightAnchor.constraint(equalToConstant: 28)
         ])
         
+        // Auto-populate console with current page info when inspector opens
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.populateConsoleWithPageInfo()
+        }
+        
         return view
+    }
+    
+    private func populateConsoleWithPageInfo() {
+        guard let webView = webView else { return }
+        
+        // Get basic page information
+        let commands = [
+            "document.title",
+            "window.location.href",
+            "navigator.userAgent.substring(0, 100) + '...'",
+            "document.querySelectorAll('*').length + ' DOM elements'",
+            "typeof RTCPeerConnection !== 'undefined' ? 'WebRTC supported' : 'WebRTC not available'"
+        ]
+        
+        for command in commands {
+            webView.evaluateJavaScript(command) { result, error in
+                DispatchQueue.main.async {
+                    if let error = error {
+                        self.consoleTextView.string += "> \(command)\nError: \(error.localizedDescription)\n\n"
+                    } else {
+                        let resultString = result != nil ? "\(result!)" : "undefined"
+                        self.consoleTextView.string += "> \(command)\n\(resultString)\n\n"
+                    }
+                    
+                    // Scroll to bottom
+                    let range = NSRange(location: self.consoleTextView.string.count, length: 0)
+                    self.consoleTextView.scrollRangeToVisible(range)
+                }
+            }
+        }
     }
     
     private func createNetworkView() -> NSView {
@@ -1295,12 +1448,27 @@ class CustomWebView: NSView {
         }
         preferences.setValue(true, forKey: "developerExtrasEnabled")
         
-        // Enable WebKit inspector using private API - use proper method
+        // Enable WebKit inspector using private API - try multiple approaches
         if preferences.responds(to: Selector("_setDeveloperExtrasEnabled:")) {
             preferences.perform(Selector("_setDeveloperExtrasEnabled:"), with: true)
+            print("WebKit developer extras enabled via _setDeveloperExtrasEnabled")
         } else {
-            // Fallback for older versions or if the API changes
-            print("Warning: Unable to enable developer extras - WebKit inspector may not be available")
+            // Try alternative private API methods
+            if let setExtrasMethod = class_getInstanceMethod(type(of: preferences), Selector("setValue:forKey:")) {
+                // Try with different key names
+                let keys = ["DeveloperExtrasEnabled", "WebKitDeveloperExtrasEnabledPreferenceKey", "_developerExtrasEnabled"]
+                for key in keys {
+                    do {
+                        preferences.setValue(NSNumber(value: true), forKey: key)
+                        print("WebKit developer extras enabled via key: \(key)")
+                        break
+                    } catch {
+                        continue
+                    }
+                }
+            } else {
+                print("Warning: Unable to enable developer extras - WebKit inspector may not be available")
+            }
         }
         
         configuration.preferences = preferences
@@ -1316,6 +1484,18 @@ class CustomWebView: NSView {
         // Set delegates
         wkWebView.navigationDelegate = self
         wkWebView.uiDelegate = self
+        
+        // Enable inspector context menu by allowing all menu items
+        if wkWebView.responds(to: Selector("_setAllowsInspectorElement:")) {
+            wkWebView.perform(Selector("_setAllowsInspectorElement:"), with: true)
+            print("Enabled inspector context menu")
+        }
+        
+        // Also try enabling right-click inspection
+        if wkWebView.responds(to: Selector("_setInspectorStartsAttached:")) {
+            wkWebView.perform(Selector("_setInspectorStartsAttached:"), with: false)
+            print("Set inspector to start detached")
+        }
         
         // Add to view hierarchy
         addSubview(wkWebView)
