@@ -1,0 +1,48 @@
+{
+  "" : {
+    "diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/Nova-master.dia",
+    "emit-module-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/Nova-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/Nova-master-emit-module.dia",
+    "swift-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/Nova-master.swiftdeps"
+  },
+  "/Users/keviruchis/Developer/Nova/Nova/CustomWebKitView.swift" : {
+    "const-values" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.swiftconstvalues",
+    "dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.d",
+    "diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.dia",
+    "index-unit-output-path" : "/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.o",
+    "llvm-bc" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.bc",
+    "object" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.o",
+    "swift-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView.swiftdeps",
+    "swiftmodule" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/CustomWebKitView~partial.swiftmodule"
+  },
+  "/Users/keviruchis/Developer/Nova/Nova/NativeBrowserWindow.swift" : {
+    "const-values" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.swiftconstvalues",
+    "dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.d",
+    "diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.dia",
+    "index-unit-output-path" : "/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.o",
+    "llvm-bc" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.bc",
+    "object" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.o",
+    "swift-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow.swiftdeps",
+    "swiftmodule" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NativeBrowserWindow~partial.swiftmodule"
+  },
+  "/Users/keviruchis/Developer/Nova/Nova/NovaApp.swift" : {
+    "const-values" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.swiftconstvalues",
+    "dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.d",
+    "diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.dia",
+    "index-unit-output-path" : "/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.o",
+    "llvm-bc" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.bc",
+    "object" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.o",
+    "swift-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp.swiftdeps",
+    "swiftmodule" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/NovaApp~partial.swiftmodule"
+  },
+  "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/keviruchis/Developer/Nova/build/Nova.build/Debug/Nova.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}
