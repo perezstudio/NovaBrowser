@@ -1,5 +1,0 @@
----
-triple:          'x86_64-apple-darwin'
-binary-path:     '/Users/keviruchis/Developer/Nova/build/Release/Nova.app/Contents/MacOS/Nova'
-relocations:     []
-...

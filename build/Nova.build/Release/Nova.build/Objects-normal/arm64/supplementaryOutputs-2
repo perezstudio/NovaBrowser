@@ -1,9 +1,0 @@
-"/Users/keviruchis/Developer/Nova/Nova/NativeBrowserWindow.swift":
-  abi-baseline-json: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova.abi.json"
-  objc-header: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova-Swift.h"
-  dependencies: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova-master.d"
-  swiftmodule: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova.swiftmodule"
-  swiftdoc: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova.swiftdoc"
-  const-values: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova-master.swiftconstvalues"
-  swiftsourceinfo: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova.swiftsourceinfo"
-  diagnostics: "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/Objects-normal/arm64/Nova-master.dia"

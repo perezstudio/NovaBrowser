@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BuildMachineOSBuild</key>
-	<string>25A5306g</string>
+	<string>25A5316i</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -51,8 +51,14 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Nova needs Bluetooth access for wireless audio devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Nova needs Bluetooth access for wireless audio devices.</string>
 	<key>NSCameraUsageDescription</key>
 	<string></string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Some websites may request your location for location-based services.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string></string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

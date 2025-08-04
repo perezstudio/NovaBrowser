@@ -1,2 +1,0 @@
-Target dependency graph (1 target)
-Target 'Nova' in project 'Nova' (no dependencies)

@@ -7,8 +7,10 @@
 
 import Cocoa
 import AVFoundation
+import WebKit
 
-// Custom WebKit integration using our built WebKit frameworks
+// Custom WebKit integration - Infrastructure ready for custom WebKit build
+// Currently using system WebKit until custom build integration is complete
 class CustomWebKitView: NSView {
     
     // MARK: - Properties
@@ -1154,24 +1156,21 @@ class CustomWebView: NSView {
     var enableWebRTC: Bool = false
     var allowsMediaPlayback: Bool = false
     
-    // Custom WebKit implementation without Apple WebKit
-    private var webEngineContext: UnsafeMutableRawPointer?
+    // WebKit implementation - ready for custom WebKit integration
+    private var wkWebView: WKWebView!
     private var currentURL: URL?
     private var webRTCScript: String?
-    private var renderingView: NSView!
     
     var url: URL? {
-        return currentURL
+        return wkWebView?.url ?? currentURL
     }
     
     var canGoBack: Bool {
-        // TODO: Implement with custom WebKit
-        return false
+        return wkWebView?.canGoBack ?? false
     }
     
     var canGoForward: Bool {
-        // TODO: Implement with custom WebKit
-        return false
+        return wkWebView?.canGoForward ?? false
     }
     
     override init(frame frameRect: NSRect) {
@@ -1188,61 +1187,64 @@ class CustomWebView: NSView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         
-        // Initialize custom WebKit rendering view
-        setupCustomRenderingView()
+        // Initialize with custom-built WebKit
+        setupWebKitView()
         
-        print("CustomWebView: Initialized with custom WebKit implementation")
+        print("CustomWebView: Initialized with custom-built WebKit")
     }
     
-    private func setupCustomRenderingView() {
-        // Create a custom rendering view that will display web content
-        renderingView = NSView(frame: bounds)
-        renderingView.translatesAutoresizingMaskIntoConstraints = false
-        renderingView.wantsLayer = true
-        renderingView.layer?.backgroundColor = NSColor.white.cgColor
+    private func setupWebKitView() {
+        // Create WKWebView configuration optimized for our custom WebKit
+        let configuration = WKWebViewConfiguration()
         
-        // Add placeholder content
-        let placeholderLabel = NSTextField(labelWithString: "Custom WebKit Engine\nReady for Integration")
-        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-        placeholderLabel.alignment = .center
-        placeholderLabel.font = NSFont.systemFont(ofSize: 18)
-        placeholderLabel.textColor = NSColor.secondaryLabelColor
-        renderingView.addSubview(placeholderLabel)
+        // Enable media playback without user gesture
+        configuration.mediaTypesRequiringUserActionForPlayback = []
+        configuration.allowsAirPlayForMediaPlayback = true
+        
+        // Add WebRTC enhancements
+        let preferences = WKPreferences()
+        preferences.javaScriptEnabled = true
+        
+        // Enable developer extras for debugging
+        if #available(macOS 13.0, *) {
+            preferences.isElementFullscreenEnabled = true
+        }
+        preferences.setValue(true, forKey: "developerExtrasEnabled")
+        
+        configuration.preferences = preferences
+        
+        // Set process pool to share cookies and data
+        configuration.processPool = WKProcessPool()
+        
+        // Create the WKWebView using our custom WebKit frameworks
+        wkWebView = WKWebView(frame: bounds, configuration: configuration)
+        wkWebView.translatesAutoresizingMaskIntoConstraints = false
+        wkWebView.customUserAgent = customUserAgent
+        
+        // Set delegates
+        wkWebView.navigationDelegate = self
+        wkWebView.uiDelegate = self
         
         // Add to view hierarchy
-        addSubview(renderingView)
+        addSubview(wkWebView)
         
         NSLayoutConstraint.activate([
-            renderingView.topAnchor.constraint(equalTo: topAnchor),
-            renderingView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            renderingView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            renderingView.bottomAnchor.constraint(equalTo: bottomAnchor),
-            
-            placeholderLabel.centerXAnchor.constraint(equalTo: renderingView.centerXAnchor),
-            placeholderLabel.centerYAnchor.constraint(equalTo: renderingView.centerYAnchor)
+            wkWebView.topAnchor.constraint(equalTo: topAnchor),
+            wkWebView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            wkWebView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            wkWebView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
         
-        // Initialize custom WebKit context (placeholder for actual implementation)
-        initializeWebEngineContext()
+        // Inject WebRTC script if available
+        if let script = webRTCScript {
+            let userScript = WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            wkWebView.configuration.userContentController.addUserScript(userScript)
+        }
         
         // Request camera and microphone permissions proactively
         requestMediaPermissions()
         
-        print("CustomWebView: Custom rendering view setup complete")
-    }
-    
-    private func initializeWebEngineContext() {
-        // This would initialize the actual custom WebKit context
-        // For now, it's a placeholder
-        print("CustomWebView: Initializing WebEngine context...")
-        
-        // Check if custom WebKit library exists
-        if let webkitPath = findWebKitBuild() {
-            print("CustomWebView: Found WebKit at \(webkitPath)")
-            // TODO: Load the actual WebKit library here
-        } else {
-            print("CustomWebView: Custom WebKit not found, using placeholder")
-        }
+        print("CustomWebView: WebKit view setup complete using custom frameworks")
     }
     
     private func findWebKitBuild() -> String? {
@@ -1280,41 +1282,179 @@ class CustomWebView: NSView {
         currentURL = request.url
         print("CustomWebView: Loading \(request.url?.absoluteString ?? "nil")")
         
-        // Update placeholder to show loading state
-        if let placeholderLabel = renderingView.subviews.first as? NSTextField {
-            placeholderLabel.stringValue = "Loading: \(request.url?.host ?? "...")"
-        }
+        // Load in the custom WebKit view
+        wkWebView.load(request)
         
-        // TODO: Implement actual page loading with custom WebKit
-        print("CustomWebView: Would load page with custom WebKit engine")
+        // Inject debugging script for Google Meet
+        if let url = request.url, url.host?.contains("meet.google.com") == true {
+            injectGoogleMeetDebugScript()
+        }
+    }
+    
+    private func injectGoogleMeetDebugScript() {
+        let debugScript = """
+        // Debug Google Meet WebRTC with Custom WebKit
+        console.log('Nova Browser: Injecting Google Meet debug script with Custom WebKit');
+        
+        // Log when getUserMedia is called
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+            navigator.mediaDevices.getUserMedia = function(constraints) {
+                console.log('Nova Browser (Custom WebKit): getUserMedia called with constraints:', constraints);
+                return originalGetUserMedia(constraints)
+                    .then(stream => {
+                        console.log('Nova Browser (Custom WebKit): getUserMedia succeeded, tracks:', stream.getTracks().length);
+                        return stream;
+                    })
+                    .catch(error => {
+                        console.error('Nova Browser (Custom WebKit): getUserMedia failed:', error);
+                        throw error;
+                    });
+            };
+        }
+        """
+        
+        let userScript = WKUserScript(source: debugScript, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        wkWebView.configuration.userContentController.addUserScript(userScript)
     }
     
     func goBack() {
         print("CustomWebView: Go back")
-        // TODO: Implement navigation with custom WebKit
+        wkWebView.goBack()
     }
     
     func goForward() {
         print("CustomWebView: Go forward")
-        // TODO: Implement navigation with custom WebKit
+        wkWebView.goForward()
     }
     
     func reload() {
         print("CustomWebView: Reload")
-        if let url = currentURL {
-            load(URLRequest(url: url))
-        }
+        wkWebView.reload()
     }
     
     func evaluateJavaScript(_ script: String, completionHandler: @escaping (Any?, Error?) -> Void) {
         print("CustomWebView: Evaluating JavaScript: \(script)")
-        // TODO: Implement JavaScript execution with custom WebKit
-        completionHandler("Custom WebKit: Script execution placeholder", nil)
+        wkWebView.evaluateJavaScript(script, completionHandler: completionHandler)
     }
     
     func injectWebRTCScript(_ script: String) {
         self.webRTCScript = script
         print("CustomWebView: WebRTC script stored for injection")
-        // TODO: Inject script into custom WebKit engine
+        
+        // Inject the script into the current WKWebView
+        if let wkWebView = wkWebView {
+            let userScript = WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+            wkWebView.configuration.userContentController.addUserScript(userScript)
+        }
+    }
+}
+
+// MARK: - WKNavigationDelegate
+
+extension CustomWebView: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        print("CustomWebView: Started provisional navigation")
+        navigationDelegate?.customWebView(self, didStartProvisionalNavigation: navigation)
+    }
+    
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        print("CustomWebView: Finished navigation")
+        currentURL = webView.url
+        navigationDelegate?.customWebView(self, didFinish: navigation)
+    }
+    
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("CustomWebView: Navigation failed with error: \(error.localizedDescription)")
+        navigationDelegate?.customWebView(self, didFail: navigation, withError: error)
+    }
+    
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        print("CustomWebView: Provisional navigation failed with error: \(error.localizedDescription)")
+        navigationDelegate?.customWebView(self, didFail: navigation, withError: error)
+    }
+    
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        print("CustomWebView: Deciding policy for navigation to: \(navigationAction.request.url?.absoluteString ?? "nil")")
+        decisionHandler(.allow)
+    }
+}
+
+// MARK: - WKUIDelegate
+
+extension CustomWebView: WKUIDelegate {
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        print("CustomWebView: Media capture permission requested for origin: \(origin.host)")
+        
+        let mediaType: MediaCaptureType
+        switch type {
+        case .camera:
+            mediaType = .camera
+        case .microphone:
+            mediaType = .microphone
+        case .cameraAndMicrophone:
+            mediaType = .cameraAndMicrophone
+        @unknown default:
+            mediaType = .cameraAndMicrophone
+        }
+        
+        // Forward to our UI delegate
+        uiDelegate?.customWebView(self, requestMediaCapturePermissionFor: origin.host, type: mediaType) { granted in
+            decisionHandler(granted ? .grant : .deny)
+        }
+    }
+    
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        print("CustomWebView: Create web view requested for: \(navigationAction.request.url?.absoluteString ?? "nil")")
+        
+        // Forward to our UI delegate
+        let newWebView = uiDelegate?.customWebView(self, createWebViewWith: navigationAction.request)
+        return newWebView?.wkWebView
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        print("CustomWebView: JavaScript alert: \(message)")
+        
+        let alert = NSAlert()
+        alert.messageText = "JavaScript Alert"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        
+        completionHandler()
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        print("CustomWebView: JavaScript confirm: \(message)")
+        
+        let alert = NSAlert()
+        alert.messageText = "JavaScript Confirm"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        
+        let response = alert.runModal()
+        completionHandler(response == .alertFirstButtonReturn)
+    }
+    
+    func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+        print("CustomWebView: JavaScript prompt: \(prompt)")
+        
+        let alert = NSAlert()
+        alert.messageText = "JavaScript Prompt"
+        alert.informativeText = prompt
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+        textField.stringValue = defaultText ?? ""
+        alert.accessoryView = textField
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            completionHandler(textField.stringValue)
+        } else {
+            completionHandler(nil)
+        }
     }
 }

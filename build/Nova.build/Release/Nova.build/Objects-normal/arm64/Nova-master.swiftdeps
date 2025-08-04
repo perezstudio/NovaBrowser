@@ -1,9 +1,0 @@
-version: "Apple Swift version 6.1.2 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)"
-options: "259463efd0d8d79267efa7e2b5c18d1596d001036a7f06d8d73d60aba836f220"
-build_start_time: [1752157321, 926839000]
-build_end_time: [1752157324, 310110000]
-inputs:
-  "/Users/keviruchis/Developer/Nova/Nova/CustomWebKitView.swift": !dirty [1752153745, 738192948]
-  "/Users/keviruchis/Developer/Nova/Nova/NativeBrowserWindow.swift": !dirty [1752033908, 925581633]
-  "/Users/keviruchis/Developer/Nova/Nova/NovaApp.swift": !dirty [1752033005, 703464687]
-  "/Users/keviruchis/Developer/Nova/build/Nova.build/Release/Nova.build/DerivedSources/GeneratedAssetSymbols.swift": !dirty [1752157319, 589816881]
