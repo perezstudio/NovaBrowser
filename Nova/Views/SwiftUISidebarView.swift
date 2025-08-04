@@ -186,6 +186,28 @@ struct SidebarContentView: View {
                         }
                     }
                     
+                    // Bookmarks Section (for current space)
+                    if let currentSpace = selectedSpace ?? spaces.first {
+                        let bookmarks = dataManager.loadBookmarks(for: currentSpace)
+                        if !bookmarks.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Bookmarks")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 16)
+                                
+                                ForEach(bookmarks, id: \.id) { bookmark in
+                                    BookmarkRow(
+                                        bookmark: bookmark,
+                                        isSelected: selectedItem == .bookmark(bookmark),
+                                        onTap: { selectedItem = .bookmark(bookmark) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
                     // Current Space Tabs Section
                     if let currentSpace = selectedSpace ?? spaces.first {
                         VStack(alignment: .leading, spacing: 4) {
@@ -206,15 +228,6 @@ struct SidebarContentView: View {
                                 Spacer()
                             }
                             .padding(.horizontal, 16)
-                            
-                            // Bookmarks
-                            let bookmarks = dataManager.loadBookmarks(for: currentSpace)
-                            ForEach(bookmarks, id: \.id) { bookmark in
-                                Button(action: { selectedItem = .bookmark(bookmark) }) {
-                                    BookmarkRow(bookmark: bookmark)
-                                }
-                                .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .bookmark(bookmark)))
-                            }
                             
                             // Tabs
                             let tabs = dataManager.loadTabs(for: currentSpace)
@@ -391,6 +404,9 @@ struct SpaceButton: View {
 
 struct BookmarkRow: View {
     let bookmark: Bookmark
+    let isSelected: Bool
+    let onTap: () -> Void
+    @State private var isHovering = false
     
     var body: some View {
         HStack {
@@ -400,7 +416,7 @@ struct BookmarkRow: View {
                     .resizable()
                     .frame(width: 16, height: 16)
             } else {
-                Image(systemName: "bookmark")
+                Image(systemName: "bookmark.fill")
                     .foregroundColor(.secondary)
                     .frame(width: 16, height: 16)
             }
@@ -410,11 +426,46 @@ struct BookmarkRow: View {
                 .lineLimit(1)
             
             Spacer()
+            
+            if isHovering {
+                Button(action: {
+                    Task { @MainActor in
+                        await DataManager.shared.deleteBookmark(bookmark)
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 16, height: 16)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Remove Bookmark")
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isSelected ? Color.accentColor.opacity(0.2) : 
+                    (isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        )
         .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
         .contextMenu {
-            Button("Open") { /* TODO */ }
-            Button("Open in New Tab") { /* TODO */ }
+            Button("Open in New Tab") { 
+                // TODO: Open bookmark in new tab
+            }
             Divider()
             Button("Delete", role: .destructive) { 
                 Task { @MainActor in
