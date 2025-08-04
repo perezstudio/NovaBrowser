@@ -6,15 +6,10 @@
 //
 
 import Cocoa
-import WebKit
 
 class NativeBrowserWindow: NSWindowController {
     
-    // Toggle between WKWebView and CustomWebKitView
-    private var useCustomWebKit: Bool = true
-    
-    // Web views
-    private var wkWebView: WKWebView?
+    // Using only custom WebKit implementation
     private var customWebKitView: CustomWebKitView?
     
     // UI elements
@@ -50,7 +45,7 @@ class NativeBrowserWindow: NSWindowController {
     private func setupWindow() {
         guard let window = window else { return }
         
-        window.title = "Nova Browser - Custom WebKit"
+        window.title = "Nova Browser - Custom WebKit Only"
         window.center()
         window.setFrameAutosaveName("NovaBrowserWindow")
         window.contentView = NSView()
@@ -60,33 +55,14 @@ class NativeBrowserWindow: NSWindowController {
     private func setupWebView() {
         guard let contentView = window?.contentView else { return }
         
-        if useCustomWebKit {
-            // Use custom WebKit implementation
-            customWebKitView = CustomWebKitView(frame: .zero)
-            customWebKitView!.translatesAutoresizingMaskIntoConstraints = false
-            contentView.addSubview(customWebKitView!)
-            
-            // Load initial page
-            if let url = URL(string: "https://apple.com") {
-                customWebKitView!.load(URLRequest(url: url))
-            }
-        } else {
-            // Use standard WKWebView
-            let configuration = WKWebViewConfiguration()
-            configuration.mediaTypesRequiringUserActionForPlayback = []
-            configuration.allowsAirPlayForMediaPlayback = true
-            
-            wkWebView = WKWebView(frame: .zero, configuration: configuration)
-            wkWebView!.translatesAutoresizingMaskIntoConstraints = false
-            wkWebView!.navigationDelegate = self
-            wkWebView!.uiDelegate = self
-            wkWebView!.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
-            
-            contentView.addSubview(wkWebView!)
-            
-            if let url = URL(string: "https://apple.com") {
-                wkWebView!.load(URLRequest(url: url))
-            }
+        // Use custom WebKit implementation
+        customWebKitView = CustomWebKitView(frame: .zero)
+        customWebKitView!.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(customWebKitView!)
+        
+        // Load initial page
+        if let url = URL(string: "https://apple.com") {
+            customWebKitView!.load(URLRequest(url: url))
         }
     }
     
@@ -134,13 +110,12 @@ class NativeBrowserWindow: NSWindowController {
         addressField.delegate = self
         toolbar.addSubview(addressField)
         
-        // WebKit toggle button
+        // WebKit info button (no longer toggle since we only use custom)
         webKitToggleButton = NSButton()
         webKitToggleButton.translatesAutoresizingMaskIntoConstraints = false
-        webKitToggleButton.title = useCustomWebKit ? "Custom" : "Apple"
+        webKitToggleButton.title = "Custom"
         webKitToggleButton.bezelStyle = .regularSquare
-        webKitToggleButton.target = self
-        webKitToggleButton.action = #selector(toggleWebKitImplementation)
+        webKitToggleButton.isEnabled = false
         toolbar.addSubview(webKitToggleButton)
         
         // Debug button
@@ -196,9 +171,8 @@ class NativeBrowserWindow: NSWindowController {
     
     private func setupConstraints() {
         guard let contentView = window?.contentView,
-              let toolbar = contentView.subviews.first(where: { $0.subviews.contains(addressField) }) else { return }
-        
-        let webView = useCustomWebKit ? customWebKitView! : wkWebView!
+              let toolbar = contentView.subviews.first(where: { $0.subviews.contains(addressField) }),
+              let webView = customWebKitView else { return }
         
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: toolbar.bottomAnchor),
@@ -211,73 +185,21 @@ class NativeBrowserWindow: NSWindowController {
     // MARK: - Actions
     
     @objc public func goBack() {
-        if useCustomWebKit {
-            customWebKitView?.goBack()
-        } else {
-            wkWebView?.goBack()
-        }
+        customWebKitView?.goBack()
     }
     
     @objc public func goForward() {
-        if useCustomWebKit {
-            customWebKitView?.goForward()
-        } else {
-            wkWebView?.goForward()
-        }
+        customWebKitView?.goForward()
     }
     
     @objc public func reload() {
-        if useCustomWebKit {
-            customWebKitView?.reload()
-        } else {
-            wkWebView?.reload()
-        }
+        customWebKitView?.reload()
     }
     
-    @objc public func toggleWebKitImplementation() {
-        useCustomWebKit.toggle()
-        webKitToggleButton.title = useCustomWebKit ? "Custom" : "Apple"
-        
-        // Remove current web view
-        if let wkView = wkWebView {
-            wkView.removeFromSuperview()
-            wkWebView = nil
-        }
-        if let customView = customWebKitView {
-            customView.removeFromSuperview()
-            customWebKitView = nil
-        }
-        
-        // Update window title
-        window?.title = "Nova Browser - \(useCustomWebKit ? "Custom WebKit" : "Apple WebKit")"
-        
-        // Setup new web view
-        setupWebView()
-        setupConstraints()
-        
-        print("Switched to \(useCustomWebKit ? "Custom" : "Apple") WebKit implementation")
-    }
+    // No longer needed since we only use custom WebKit
     
     @objc public func openDebugTools() {
-        if useCustomWebKit {
-            customWebKitView?.showInspector()
-        } else {
-            // Show message about Apple WebKit limitations
-            let alert = NSAlert()
-            alert.messageText = "Inspector Not Available"
-            alert.informativeText = "The Apple WebKit inspector causes ViewBridge conflicts in this environment. Switch to Custom WebKit for full debugging capabilities."
-            alert.addButton(withTitle: "Switch to Custom WebKit")
-            alert.addButton(withTitle: "Cancel")
-            
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                toggleWebKitImplementation()
-                // Try to open inspector again after switch
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.openDebugTools()
-                }
-            }
-        }
+        customWebKitView?.showInspector()
     }
     
     @objc public func toggleInspector() {
@@ -285,60 +207,14 @@ class NativeBrowserWindow: NSWindowController {
     }
     
     private func updateButtons() {
-        if useCustomWebKit {
-            backButton.isEnabled = customWebKitView?.canGoBack ?? false
-            forwardButton.isEnabled = customWebKitView?.canGoForward ?? false
-        } else {
-            backButton.isEnabled = wkWebView?.canGoBack ?? false
-            forwardButton.isEnabled = wkWebView?.canGoForward ?? false
-        }
+        backButton.isEnabled = customWebKitView?.canGoBack ?? false
+        forwardButton.isEnabled = customWebKitView?.canGoForward ?? false
     }
     
     private func updateAddressField() {
-        let urlString: String?
-        if useCustomWebKit {
-            urlString = customWebKitView?.url?.absoluteString
-        } else {
-            urlString = wkWebView?.url?.absoluteString
-        }
-        
-        if let url = urlString {
+        if let url = customWebKitView?.url?.absoluteString {
             addressField.stringValue = url
         }
-    }
-}
-
-// MARK: - WKNavigationDelegate (for Apple WebKit)
-
-extension NativeBrowserWindow: WKNavigationDelegate {
-    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        print("WKWebView: Started loading")
-        updateButtons()
-    }
-    
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        print("WKWebView: Finished loading")
-        updateButtons()
-        updateAddressField()
-    }
-    
-    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        print("WKWebView: Navigation failed")
-        updateButtons()
-    }
-    
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        print("WKWebView: Provisional navigation failed")
-        updateButtons()
-    }
-}
-
-// MARK: - WKUIDelegate (for Apple WebKit)
-
-extension NativeBrowserWindow: WKUIDelegate {
-    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-        print("WKWebView: Media capture permission requested")
-        decisionHandler(.grant)
     }
 }
 
@@ -355,11 +231,7 @@ extension NativeBrowserWindow: NSTextFieldDelegate {
         }
         
         if let url = URL(string: urlString) {
-            if useCustomWebKit {
-                customWebKitView?.load(URLRequest(url: url))
-            } else {
-                wkWebView?.load(URLRequest(url: url))
-            }
+            customWebKitView?.load(URLRequest(url: url))
         }
     }
 }
