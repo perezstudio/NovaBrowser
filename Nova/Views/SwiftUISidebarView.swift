@@ -175,10 +175,12 @@ struct SidebarContentView: View {
                                     .padding(.horizontal, 16)
                                 
                                 ForEach(pinnedTabs) { pinnedTab in
-                                    Button(action: { selectedItem = .pinnedTab(pinnedTab) }) {
-                                        PinnedTabRow(pinnedTab: pinnedTab)
-                                    }
-                                    .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .pinnedTab(pinnedTab)))
+                                    PinnedTabRow(
+                                        pinnedTab: pinnedTab,
+                                        isSelected: selectedItem == .pinnedTab(pinnedTab),
+                                        onTap: { selectedItem = .pinnedTab(pinnedTab) },
+                                        onClose: { selectedItem = nil }
+                                    )
                                 }
                             }
                         }
@@ -217,10 +219,12 @@ struct SidebarContentView: View {
                             // Tabs
                             let tabs = dataManager.loadTabs(for: currentSpace)
                             ForEach(tabs, id: \.id) { tab in
-                                Button(action: { selectedItem = .tab(tab) }) {
-                                    TabRow(tab: tab)
-                                }
-                                .buttonStyle(SidebarItemButtonStyle(isSelected: selectedItem == .tab(tab)))
+                                TabRow(
+                                    tab: tab, 
+                                    isSelected: selectedItem == .tab(tab),
+                                    onTap: { selectedItem = .tab(tab) },
+                                    onClose: { selectedItem = nil }
+                                )
                             }
                             
                             // Add Tab Button
@@ -423,6 +427,10 @@ struct BookmarkRow: View {
 
 struct TabRow: View {
     let tab: Tab
+    let isSelected: Bool
+    let onTap: () -> Void
+    var onClose: (() -> Void)? = nil
+    @State private var isHovering = false
     
     var body: some View {
         HStack {
@@ -444,22 +452,66 @@ struct TabRow: View {
             
             Spacer()
             
-            if tab.isActive {
+            if isHovering {
+                Button(action: {
+                    Task { @MainActor in
+                        // Clear selection if this is the selected tab
+                        if isSelected {
+                            onClose?()
+                        }
+                        await DataManager.shared.closeTab(tab)
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 16, height: 16)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Close Tab")
+            } else if tab.isActive {
                 Circle()
                     .fill(Color.accentColor)
                     .frame(width: 6, height: 6)
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isSelected ? Color.accentColor.opacity(0.2) : 
+                    (isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        )
         .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
         .contextMenu {
             Button("Close Tab") { 
                 Task { @MainActor in
+                    // Clear selection if this is the selected tab
+                    if isSelected {
+                        onClose?()
+                    }
                     await DataManager.shared.closeTab(tab)
                 }
             }
             Button("Pin Tab") { 
                 Task { @MainActor in
                     await DataManager.shared.addPinnedTab(title: tab.title, url: tab.url)
+                    // Clear selection if this is the selected tab
+                    if isSelected {
+                        onClose?()
+                    }
                     await DataManager.shared.closeTab(tab)
                 }
             }
@@ -469,6 +521,10 @@ struct TabRow: View {
 
 struct PinnedTabRow: View {
     let pinnedTab: PinnedTab
+    let isSelected: Bool
+    let onTap: () -> Void
+    var onClose: (() -> Void)? = nil
+    @State private var isHovering = false
     
     var body: some View {
         HStack {
@@ -488,11 +544,53 @@ struct PinnedTabRow: View {
                 .lineLimit(1)
             
             Spacer()
+            
+            if isHovering {
+                Button(action: {
+                    Task { @MainActor in
+                        // Clear selection if this is the selected tab
+                        if isSelected {
+                            onClose?()
+                        }
+                        await DataManager.shared.removePinnedTab(pinnedTab)
+                    }
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 16, height: 16)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("Unpin Tab")
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isSelected ? Color.accentColor.opacity(0.2) : 
+                    (isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        )
         .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
         .contextMenu {
             Button("Unpin Tab") { 
                 Task { @MainActor in
+                    // Clear selection if this is the selected tab
+                    if isSelected {
+                        onClose?()
+                    }
                     await DataManager.shared.removePinnedTab(pinnedTab)
                 }
             }
@@ -661,29 +759,38 @@ struct FloatingWebContentView: View {
                     }
                 }
             } else {
-                // Empty state that fills the entire area below the URL bar
-                VStack {
-                    Spacer()
+                // Empty state with material background
+                ZStack {
+                    // Material background
+                    VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+                        .opacity(0.8)
                     
-                    Image(systemName: "globe")
-                        .font(.system(size: 64))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    
-                    Text("No Selection")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 8)
-                    
-                    Text("Select an item from the sidebar to start browsing")
-                        .font(.body)
-                        .foregroundColor(.secondary.opacity(0.8))
-                        .padding(.top, 2)
-                    
-                    Spacer()
+                    VStack(spacing: 16) {
+                        Spacer()
+                        
+                        // Icon with subtle animation
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 72, weight: .thin))
+                            .foregroundColor(.secondary.opacity(0.3))
+                            .symbolEffect(.pulse, options: .repeating.speed(0.5))
+                        
+                        VStack(spacing: 8) {
+                            Text("No Tab Selected")
+                                .font(.title2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary.opacity(0.9))
+                            
+                            Text("Select a tab from the sidebar or create a new one")
+                                .font(.body)
+                                .foregroundColor(.secondary.opacity(0.6))
+                                .multilineTextAlignment(.center)
+                                .frame(maxWidth: 300)
+                        }
+                        
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(NSColor.windowBackgroundColor))
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
