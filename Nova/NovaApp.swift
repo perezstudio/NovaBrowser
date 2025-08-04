@@ -6,6 +6,8 @@
 //
 
 import Cocoa
+import SwiftData
+import SwiftUI
 
 @main
 class NovaApp {
@@ -19,6 +21,7 @@ class NovaApp {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var browserWindows: [NativeBrowserWindow] = []
+    private lazy var dataManager = DataManager.shared
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("Nova Browser starting...")
@@ -152,11 +155,8 @@ extension AppDelegate {
     }
     
     @objc func reloadCurrentPage() {
-        // Find the current browser window and reload
-        if let keyWindow = NSApp.keyWindow,
-           let browserWindow = browserWindows.first(where: { $0.window == keyWindow }) {
-            browserWindow.reload()
-        }
+        // Reload is now handled within SwiftUI NavigationSplitView
+        print("Reload current page - handled by SwiftUI interface")
     }
     
     @objc func showWebInspector() {
