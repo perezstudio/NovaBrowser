@@ -574,6 +574,7 @@ struct FloatingWebContentView: View {
                         canGoBack: $canGoBack,
                         canGoForward: $canGoForward
                     )
+                    .id(bookmark.id) // Force new instance when switching items
                     .onAppear {
                         currentURL = bookmark.url
                     }
@@ -585,6 +586,7 @@ struct FloatingWebContentView: View {
                         canGoBack: $canGoBack,
                         canGoForward: $canGoForward
                     )
+                    .id(tab.id) // Force new instance when switching items
                     .onAppear {
                         currentURL = tab.url
                     }
@@ -596,6 +598,7 @@ struct FloatingWebContentView: View {
                         canGoBack: $canGoBack,
                         canGoForward: $canGoForward
                     )
+                    .id(pinnedTab.id) // Force new instance when switching items
                     .onAppear {
                         currentURL = pinnedTab.url
                     }
@@ -671,7 +674,7 @@ struct WebViewRepresentable: NSViewRepresentable {
             self.webView = webView
         }
         
-        // Load URL
+        // Load URL only on initial creation
         if let url = url {
             webView.load(URLRequest(url: url))
         }
@@ -683,9 +686,8 @@ struct WebViewRepresentable: NSViewRepresentable {
     }
     
     func updateNSView(_ nsView: CustomWebKitView, context: Context) {
-        if let url = url, nsView.url != url {
-            nsView.load(URLRequest(url: url))
-        }
+        // Don't reload on updates - the web view should maintain its own navigation state
+        // This prevents the reload loop when clicking links
     }
     
     class Coordinator: NSObject {
@@ -709,9 +711,8 @@ struct WebViewRepresentable: NSViewRepresentable {
                     self.parent.canGoBack = webView.canGoBack
                     self.parent.canGoForward = webView.canGoForward
                     
-                    // Update URL if it changed
-                    if let currentURL = webView.url?.absoluteString,
-                       currentURL != self.parent.currentURL {
+                    // Update URL if it changed (but don't trigger new loads)
+                    if let currentURL = webView.url?.absoluteString {
                         self.parent.currentURL = currentURL
                     }
                 }
