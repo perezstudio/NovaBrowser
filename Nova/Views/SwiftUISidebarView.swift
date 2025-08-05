@@ -258,24 +258,31 @@ struct NovaNavigationView: View {
     @State private var editingSpace: Space?
     @State private var sidebarVisible = true
     @State private var currentURL = ""
+    @State private var sidebarWidth: CGFloat = 280
     
     var body: some View {
         ZStack(alignment: .leading) {
             // Background material sidebar
             if sidebarVisible {
-                SidebarContentView(
-                    selectedSpace: $selectedSpace,
-                    selectedItem: $selectedItem,
-                    showingProfileSheet: $showingProfileSheet,
-                    showingSpaceSheet: $showingSpaceSheet,
-                    editingSpace: $editingSpace,
-                    sidebarVisible: $sidebarVisible,
-                    currentURL: $currentURL
-                )
-                .frame(width: 280)
-                .background(
-                    VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
-                )
+                HStack(spacing: 0) {
+                    SidebarContentView(
+                        selectedSpace: $selectedSpace,
+                        selectedItem: $selectedItem,
+                        showingProfileSheet: $showingProfileSheet,
+                        showingSpaceSheet: $showingSpaceSheet,
+                        editingSpace: $editingSpace,
+                        sidebarVisible: $sidebarVisible,
+                        currentURL: $currentURL,
+                        sidebarWidth: sidebarWidth
+                    )
+                    .frame(width: sidebarWidth)
+                    .background(
+                        VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
+                    )
+                    
+                    // Resize handle
+                    ResizeHandle(sidebarWidth: $sidebarWidth)
+                }
                 .transition(.move(edge: .leading))
             }
             
@@ -283,7 +290,7 @@ struct NovaNavigationView: View {
             HStack(spacing: 0) {
                 if sidebarVisible {
                     Color.clear
-                        .frame(width: 280)
+                        .frame(width: sidebarWidth + 4) // +4 for resize handle width
                 }
                 
                 // Floating web view with custom URL bar
@@ -296,6 +303,7 @@ struct NovaNavigationView: View {
         }
         .toolbar(.hidden)  // Hide the toolbar completely
         .animation(.easeInOut(duration: 0.3), value: sidebarVisible)
+        .animation(.none, value: sidebarWidth)
         .sheet(isPresented: $showingSpaceSheet) {
             SpaceCreationView(editingSpace: editingSpace)
         }
@@ -321,6 +329,7 @@ struct SidebarContentView: View {
     @Binding var editingSpace: Space?
     @Binding var sidebarVisible: Bool
     @Binding var currentURL: String
+    let sidebarWidth: CGFloat
     
     var body: some View {
         VStack(spacing: 0) {
@@ -518,7 +527,8 @@ struct SidebarContentView: View {
                 spaces: spaces.sorted { $0.sortOrder < $1.sortOrder },
                 selectedSpace: $selectedSpace,
                 showingSpaceSheet: $showingSpaceSheet,
-                editingSpace: $editingSpace
+                editingSpace: $editingSpace,
+                sidebarWidth: sidebarWidth
             )
         }
     }
@@ -587,6 +597,7 @@ struct SpacesBottomBar: View {
     @Binding var selectedSpace: Space?
     @Binding var showingSpaceSheet: Bool
     @Binding var editingSpace: Space?
+    let sidebarWidth: CGFloat
     
     @StateObject private var dataManager = DataManager.shared
     
@@ -618,7 +629,6 @@ struct SpacesBottomBar: View {
         let spacing: CGFloat = 8
         let addButtonWidth: CGFloat = 36
         let padding: CGFloat = 24 // 12 on each side
-        let sidebarWidth: CGFloat = 280
         
         let totalWidth = CGFloat(spaces.count) * buttonWidth + 
                         CGFloat(spaces.count - 1) * spacing + 
@@ -2014,6 +2024,71 @@ struct SpaceCreationView: View {
                 )
             }
             dismiss()
+        }
+    }
+}
+
+// MARK: - Resize Handle
+
+struct ResizeHandle: View {
+    @Binding var sidebarWidth: CGFloat
+    @State private var isDragging = false
+    @State private var isHovering = false
+    @State private var startWidth: CGFloat = 0
+    
+    let minWidth: CGFloat = 200
+    let maxWidth: CGFloat = 400
+    
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 4)
+            .background(
+                Rectangle()
+                    .fill(isHovering || isDragging ? Color.primary.opacity(0.2) : Color.clear)
+                    .frame(width: 1)
+                    .animation(.easeInOut(duration: 0.15), value: isHovering || isDragging)
+            )
+            .contentShape(Rectangle())
+            .onHover { hovering in
+                isHovering = hovering
+                if hovering {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if !isDragging {
+                            isDragging = true
+                            startWidth = sidebarWidth
+                        }
+                        
+                        let targetWidth = startWidth + value.translation.width
+                        let clampedWidth = max(minWidth, min(maxWidth, targetWidth))
+                        
+                        // Use direct assignment without animation for smooth dragging
+                        sidebarWidth = clampedWidth
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
+    }
+}
+
+// MARK: - View Extension for Cursor
+
+extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        onHover { hovering in
+            if hovering {
+                cursor.push()
+            } else {
+                NSCursor.pop()
+            }
         }
     }
 }
