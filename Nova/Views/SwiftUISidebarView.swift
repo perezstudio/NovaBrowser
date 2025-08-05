@@ -1082,7 +1082,6 @@ struct FloatingWebContentView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
                 
                 // Action buttons (removed plus button)
                 Menu {
@@ -1158,8 +1157,6 @@ struct FloatingWebContentView: View {
             }
         }
         .background(Color(NSColor.windowBackgroundColor))
-        .cornerRadius(12, corners: [.topLeft, .bottomLeft])
-        .shadow(color: .black.opacity(0.1), radius: 10, x: -2, y: 0)
     }
     
     private func navigateToURL(_ urlString: String) {
