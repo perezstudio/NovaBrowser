@@ -1027,16 +1027,18 @@ struct FloatingWebContentView: View {
                         .foregroundColor(currentURL.hasPrefix("https") ? .green : .orange)
                     
                     if isEditingURL {
-                        TextField("Enter URL", text: $editingURL)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .onSubmit {
+                        SelectAllTextField(
+                            placeholder: "Enter URL", 
+                            text: $editingURL,
+                            onSubmit: {
                                 navigateToURL(editingURL)
                                 isEditingURL = false
-                            }
-                            .onExitCommand {
+                            },
+                            onEscape: {
                                 editingURL = currentURL
                                 isEditingURL = false
                             }
+                        )
                         
                         // Go button when editing
                         Button(action: {
@@ -1616,6 +1618,71 @@ func fixCorruptedTabURL(tab: Tab, newURL: String) async {
     print("DataManager: Fixing corrupted tab '\(tab.title)' URL from 'about:blank' to '\(newURL)'")
     tab.url = newURL
     await DataManager.shared.save()
+}
+
+// MARK: - Custom Text Field with Select All
+
+struct SelectAllTextField: NSViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    let onSubmit: () -> Void
+    let onEscape: () -> Void
+    
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.placeholderString = placeholder
+        textField.stringValue = text
+        textField.delegate = context.coordinator
+        textField.isBordered = false
+        textField.backgroundColor = NSColor.clear
+        textField.focusRingType = .none
+        
+        // Select all text when the field is created
+        DispatchQueue.main.async {
+            textField.selectText(nil)
+        }
+        
+        return textField
+    }
+    
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+            // Select all text when text is updated
+            DispatchQueue.main.async {
+                nsView.selectText(nil)
+            }
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        let parent: SelectAllTextField
+        
+        init(_ parent: SelectAllTextField) {
+            self.parent = parent
+        }
+        
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                parent.text = textField.stringValue
+            }
+        }
+        
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                parent.onSubmit()
+                return true
+            } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.onEscape()
+                return true
+            }
+            return false
+        }
+    }
 }
 
 // MARK: - Helper Extensions
