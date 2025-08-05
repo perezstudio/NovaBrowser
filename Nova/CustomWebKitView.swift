@@ -624,6 +624,11 @@ extension CustomWebKitView: CustomWebViewDelegate {
         // This will be handled by the WebViewContainer to update the appropriate tab/bookmark
         print("Custom WebKit: Favicon updated (\(faviconData?.count ?? 0) bytes)")
     }
+    
+    func customWebView(_ webView: CustomWebView, didUpdateURL url: URL?) {
+        // This will be handled by the WebViewContainer to update the appropriate tab/bookmark
+        print("Custom WebKit: URL updated to: \(url?.absoluteString ?? "nil")")
+    }
 }
 
 // MARK: - CustomWebViewUIDelegate
@@ -1397,6 +1402,7 @@ protocol CustomWebViewDelegate: AnyObject {
     func customWebView(_ webView: CustomWebView, didFail navigation: Any?, withError error: Error)
     func customWebView(_ webView: CustomWebView, didUpdateTitle title: String?)
     func customWebView(_ webView: CustomWebView, didUpdateFavicon faviconData: Data?)
+    func customWebView(_ webView: CustomWebView, didUpdateURL url: URL?)
 }
 
 protocol CustomWebViewUIDelegate: AnyObject {
@@ -1886,6 +1892,9 @@ extension CustomWebView: WKNavigationDelegate {
         print("CustomWebView: Finished navigation")
         currentURL = webView.url
         navigationDelegate?.customWebView(self, didFinish: navigation)
+        
+        // Notify delegate of URL change
+        navigationDelegate?.customWebView(self, didUpdateURL: webView.url)
         
         // Update title after navigation completes
         updateTitle()

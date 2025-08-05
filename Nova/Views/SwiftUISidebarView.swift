@@ -13,6 +13,7 @@ import WebKit
 protocol WebViewContainerDelegate: AnyObject {
     func webViewContainer(_ container: WebViewContainer, didUpdateTitle title: String?, for itemID: String)
     func webViewContainer(_ container: WebViewContainer, didUpdateFavicon faviconData: Data?, for itemID: String)
+    func webViewContainer(_ container: WebViewContainer, didUpdateURL url: URL?, for itemID: String)
 }
 
 // MARK: - WebView Container for Managing Multiple WebViews
@@ -199,6 +200,16 @@ class WebKitViewDelegateInterceptor: NSObject, @preconcurrency CustomWebViewDele
             
             // Then notify our container
             container?.delegate?.webViewContainer(container!, didUpdateFavicon: faviconData, for: itemID)
+        }
+    }
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didUpdateURL url: URL?) {
+        Task { @MainActor in
+            // Forward to original delegate first
+            originalDelegate?.customWebView(webView, didUpdateURL: url)
+            
+            // Then notify our container
+            container?.delegate?.webViewContainer(container!, didUpdateURL: url, for: itemID)
         }
     }
 }
@@ -504,7 +515,7 @@ struct SidebarContentView: View {
     
     private func createNewTab(in space: Space) {
         Task { @MainActor in
-            let tab = await dataManager.addTab(title: "New Tab", url: "https://google.com", to: space)
+            let tab = await dataManager.addTab(title: "New Tab", url: "about:blank", to: space)
             selectedItem = .tab(tab)
         }
     }
@@ -1171,6 +1182,7 @@ struct WebViewContainerRepresentable: NSViewRepresentable {
         
         // If we have a selected item, create and show its webview
         if let item = selectedItem {
+            print("WebViewContainer: makeNSView for item \(item.itemID) with URL: \(item.url?.absoluteString ?? "nil")")
             let webView = container.getOrCreateWebView(
                 for: item.itemID,
                 url: item.url,
@@ -1203,6 +1215,7 @@ struct WebViewContainerRepresentable: NSViewRepresentable {
         }
         
         // Get or create webview for this item
+        print("WebViewContainer: Creating webview for item \(item.itemID) with URL: \(item.url?.absoluteString ?? "nil")")
         let webView = container.getOrCreateWebView(
             for: item.itemID,
             url: item.url,
@@ -1277,6 +1290,15 @@ struct WebViewContainerRepresentable: NSViewRepresentable {
             // Update the appropriate data model based on itemID
             Task { @MainActor in
                 await self.updateFaviconForItem(itemID: itemID, faviconData: faviconData)
+            }
+        }
+        
+        func webViewContainer(_ container: WebViewContainer, didUpdateURL url: URL?, for itemID: String) {
+            print("WebViewContainer: URL updated for \(itemID): \(url?.absoluteString ?? "nil")")
+            
+            // Update the appropriate data model based on itemID
+            Task { @MainActor in
+                await self.updateURLForItem(itemID: itemID, url: url)
             }
         }
         
@@ -1362,6 +1384,44 @@ struct WebViewContainerRepresentable: NSViewRepresentable {
             }
         }
         
+        private func updateTabURL(tabId: UUID, url: String) async {
+            let dataManager = await DataManager.shared
+            
+            // Load all tabs and find the one with matching ID
+            for space in await dataManager.spaces {
+                let tabs = await dataManager.loadTabs(for: space)
+                if let tab = tabs.first(where: { $0.id == tabId }) {
+                    tab.url = url
+                    await dataManager.save()
+                    print("Updated tab URL: \(url)")
+                    return
+                }
+            }
+        }
+        
+        private func updateURLForItem(itemID: String, url: URL?) async {
+            guard let url = url, url.absoluteString != "about:blank" else { 
+                // Don't update URLs to about:blank unless it's a new tab
+                print("WebViewContainer: Skipping URL update to about:blank for \(itemID)")
+                return 
+            }
+            
+            print("WebViewContainer: Updating URL for \(itemID) to: \(url.absoluteString)")
+            
+            if itemID.hasPrefix("tab-") {
+                let tabIdString = String(itemID.dropFirst(4))
+                if let tabId = UUID(uuidString: tabIdString) {
+                    await updateTabURL(tabId: tabId, url: url.absoluteString)
+                }
+            } else if itemID.hasPrefix("pinnedTab-") {
+                let pinnedTabIdString = String(itemID.dropFirst(10))
+                if let pinnedTabId = UUID(uuidString: pinnedTabIdString) {
+                    await updatePinnedTabURL(pinnedTabId: pinnedTabId, url: url.absoluteString)
+                }
+            }
+            // Note: We don't update bookmark URLs here as they should remain static
+        }
+        
         private func updatePinnedTabTitle(pinnedTabId: UUID, title: String) async {
             let dataManager = await DataManager.shared
             
@@ -1372,6 +1432,21 @@ struct WebViewContainerRepresentable: NSViewRepresentable {
                     pinnedTab.title = title
                     await dataManager.save()
                     print("Updated pinned tab title: \(title)")
+                    return
+                }
+            }
+        }
+        
+        private func updatePinnedTabURL(pinnedTabId: UUID, url: String) async {
+            let dataManager = await DataManager.shared
+            
+            // Load all pinned tabs and find the one with matching ID
+            for profile in await dataManager.profiles {
+                let pinnedTabs = await dataManager.loadPinnedTabs(for: profile)
+                if let pinnedTab = pinnedTabs.first(where: { $0.id == pinnedTabId }) {
+                    pinnedTab.url = url
+                    await dataManager.save()
+                    print("Updated pinned tab URL: \(url)")
                     return
                 }
             }
@@ -1446,6 +1521,19 @@ enum SidebarItem: Hashable {
         case .bookmark(let bookmark):
             return URL(string: bookmark.url)
         case .tab(let tab):
+            // Fix corrupted tab URLs that have "about:blank" when they should have proper URLs
+            if tab.url == "about:blank" && !tab.title.isEmpty && tab.title != "New Tab" {
+                print("WARNING: Fixing corrupted tab '\(tab.title)' with about:blank URL")
+                // Try to infer URL from title or provide a reasonable default
+                let inferredURL = inferURLFromTitle(tab.title)
+                
+                // Update the tab's URL in the database
+                Task { @MainActor in
+                    await fixCorruptedTabURL(tab: tab, newURL: inferredURL)
+                }
+                
+                return URL(string: inferredURL)
+            }
             return URL(string: tab.url)
         case .pinnedTab(let pinnedTab):
             return URL(string: pinnedTab.url)
@@ -1489,6 +1577,45 @@ enum SidebarItem: Hashable {
             return false
         }
     }
+}
+
+// MARK: - Tab URL Recovery Functions
+
+func inferURLFromTitle(_ title: String) -> String {
+    let lowercaseTitle = title.lowercased()
+    
+    // Common website patterns based on title content
+    if lowercaseTitle.contains("youtube") {
+        return "https://youtube.com"
+    } else if lowercaseTitle.contains("webflow") {
+        return "https://webflow.com"
+    } else if lowercaseTitle.contains("google") {
+        return "https://google.com"
+    } else if lowercaseTitle.contains("github") {
+        return "https://github.com"
+    } else if lowercaseTitle.contains("stackoverflow") || lowercaseTitle.contains("stack overflow") {
+        return "https://stackoverflow.com"
+    } else if lowercaseTitle.contains("reddit") {
+        return "https://reddit.com"
+    } else if lowercaseTitle.contains("twitter") {
+        return "https://twitter.com"
+    } else if lowercaseTitle.contains("facebook") {
+        return "https://facebook.com"
+    } else if lowercaseTitle.contains("amazon") {
+        return "https://amazon.com"
+    } else if lowercaseTitle.contains("netflix") {
+        return "https://netflix.com"
+    } else {
+        // For unknown titles, use google search
+        return "https://google.com"
+    }
+}
+
+@MainActor
+func fixCorruptedTabURL(tab: Tab, newURL: String) async {
+    print("DataManager: Fixing corrupted tab '\(tab.title)' URL from 'about:blank' to '\(newURL)'")
+    tab.url = newURL
+    await DataManager.shared.save()
 }
 
 // MARK: - Helper Extensions
