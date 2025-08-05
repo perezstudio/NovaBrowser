@@ -1101,6 +1101,7 @@ struct FloatingWebContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+            .padding(.top, sidebarVisible ? 0 : 28) // Add top padding when sidebar is closed to account for title bar
             .background(.ultraThinMaterial)
             .overlay(
                 Rectangle()
