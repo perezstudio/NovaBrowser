@@ -42,6 +42,10 @@ class NativeBrowserWindow: NSWindowController {
             backing: .buffered,
             defer: false
         )
+        
+        // Immediately remove toolbar capability
+        window.toolbar = nil
+        
         self.init(window: window)
     }
     
@@ -52,20 +56,23 @@ class NativeBrowserWindow: NSWindowController {
     private func setupWindow() {
         guard let window = window else { return }
         
-        window.title = "Nova"
+        window.title = ""
         window.center()
         window.setFrameAutosaveName("NovaBrowserWindow")
         window.contentView = NSView()
         window.contentView?.wantsLayer = true
         
-        // Make window transparent in title bar area for edge-to-edge
+        // Make title bar transparent and hide title while keeping window draggable
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         
-        // Hide default traffic lights - we have custom ones in the sidebar
+        // Hide standard window buttons - we have custom ones in sidebar
         window.standardWindowButton(.closeButton)?.isHidden = true
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
+        
+        // Remove toolbar completely
+        window.toolbar = nil
         
         window.hasShadow = true
     }
@@ -76,20 +83,25 @@ class NativeBrowserWindow: NSWindowController {
         // Create SwiftUI hosting view with proper edge-to-edge layout
         let navigationView = NovaNavigationView()
             .modelContainer(dataManager.modelContainer)
-            .ignoresSafeArea()  // Ignore safe area to extend into title bar
+            .ignoresSafeArea(.all)  // Ignore all safe areas to extend into title bar
         
         hostingView = NSHostingView(rootView: AnyView(navigationView))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         
         windowContentView.addSubview(hostingView)
         
-        // Fill the entire window content area
+        // Fill the entire window content area - extend into title bar
         NSLayoutConstraint.activate([
-            hostingView.topAnchor.constraint(equalTo: windowContentView.topAnchor),
+            hostingView.topAnchor.constraint(equalTo: windowContentView.topAnchor, constant: -28), // Negative offset to extend into title bar
             hostingView.leadingAnchor.constraint(equalTo: windowContentView.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: windowContentView.trailingAnchor),
             hostingView.bottomAnchor.constraint(equalTo: windowContentView.bottomAnchor)
         ])
+        
+        // Force remove toolbar after SwiftUI setup
+        DispatchQueue.main.async { [weak self] in
+            self?.window?.toolbar = nil
+        }
     }
     
     private func loadInitialData() {
@@ -98,6 +110,21 @@ class NativeBrowserWindow: NSWindowController {
             await dataManager.loadProfiles()
             await dataManager.loadSpaces()
         }
+        
+        // Add observers to ensure toolbar stays hidden
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidUpdate),
+            name: NSWindow.didUpdateNotification,
+            object: window
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidBecomeKey),
+            name: NSWindow.didBecomeKeyNotification,
+            object: window
+        )
     }
     
     // MARK: - Public Interface
@@ -116,5 +143,31 @@ class NativeBrowserWindow: NSWindowController {
     
     @objc public func showInspectorSources() {
         customWebKitView?.showInspectorSources()
+    }
+    
+    // MARK: - Toolbar Management
+    
+    private func ensureToolbarHidden() {
+        guard let window = window else { return }
+        
+        // Simple and direct - just remove the toolbar
+        window.toolbar = nil
+    }
+    
+    override func windowDidLoad() {
+        super.windowDidLoad()
+        ensureToolbarHidden()
+    }
+    
+    @objc private func windowDidUpdate() {
+        ensureToolbarHidden()
+    }
+    
+    @objc private func windowDidBecomeKey() {
+        ensureToolbarHidden()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }

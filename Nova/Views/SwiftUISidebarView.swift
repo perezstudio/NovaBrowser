@@ -261,39 +261,34 @@ struct NovaNavigationView: View {
     @State private var sidebarWidth: CGFloat = 280
     
     var body: some View {
-        ZStack(alignment: .leading) {
-            // Background material sidebar
+        Group {
             if sidebarVisible {
-                HStack(spacing: 0) {
-                    SidebarContentView(
-                        selectedSpace: $selectedSpace,
-                        selectedItem: $selectedItem,
-                        showingProfileSheet: $showingProfileSheet,
-                        showingSpaceSheet: $showingSpaceSheet,
-                        editingSpace: $editingSpace,
-                        sidebarVisible: $sidebarVisible,
-                        currentURL: $currentURL,
-                        sidebarWidth: sidebarWidth
+                SplitViewRepresentable(
+                    sidebarWidth: $sidebarWidth,
+                    sidebar: AnyView(
+                        SidebarContentView(
+                            selectedSpace: $selectedSpace,
+                            selectedItem: $selectedItem,
+                            showingProfileSheet: $showingProfileSheet,
+                            showingSpaceSheet: $showingSpaceSheet,
+                            editingSpace: $editingSpace,
+                            sidebarVisible: $sidebarVisible,
+                            currentURL: $currentURL,
+                            sidebarWidth: sidebarWidth
+                        )
+                        .background(
+                            VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
+                        )
+                    ),
+                    main: AnyView(
+                        FloatingWebContentView(
+                            selectedItem: selectedItem,
+                            sidebarVisible: $sidebarVisible,
+                            currentURL: $currentURL
+                        )
                     )
-                    .frame(width: sidebarWidth)
-                    .background(
-                        VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
-                    )
-                    
-                    // Resize handle
-                    ResizeHandle(sidebarWidth: $sidebarWidth)
-                }
-                .transition(.move(edge: .leading))
-            }
-            
-            // Main web content area
-            HStack(spacing: 0) {
-                if sidebarVisible {
-                    Color.clear
-                        .frame(width: sidebarWidth + 4) // +4 for resize handle width
-                }
-                
-                // Floating web view with custom URL bar
+                )
+            } else {
                 FloatingWebContentView(
                     selectedItem: selectedItem,
                     sidebarVisible: $sidebarVisible,
@@ -301,9 +296,7 @@ struct NovaNavigationView: View {
                 )
             }
         }
-        .toolbar(.hidden)  // Hide the toolbar completely
         .animation(.easeInOut(duration: 0.3), value: sidebarVisible)
-        .animation(.none, value: sidebarWidth)
         .sheet(isPresented: $showingSpaceSheet) {
             SpaceCreationView(editingSpace: editingSpace)
         }
@@ -2028,54 +2021,126 @@ struct SpaceCreationView: View {
     }
 }
 
-// MARK: - Resize Handle
+// MARK: - Split View Representable
 
-struct ResizeHandle: View {
+struct SplitViewRepresentable: NSViewRepresentable {
     @Binding var sidebarWidth: CGFloat
-    @State private var isDragging = false
-    @State private var isHovering = false
-    @State private var startWidth: CGFloat = 0
+    let sidebar: AnyView
+    let main: AnyView
     
     let minWidth: CGFloat = 200
     let maxWidth: CGFloat = 400
     
-    var body: some View {
-        Rectangle()
-            .fill(Color.clear)
-            .frame(width: 4)
-            .background(
-                Rectangle()
-                    .fill(isHovering || isDragging ? Color.primary.opacity(0.2) : Color.clear)
-                    .frame(width: 1)
-                    .animation(.easeInOut(duration: 0.15), value: isHovering || isDragging)
-            )
-            .contentShape(Rectangle())
-            .onHover { hovering in
-                isHovering = hovering
-                if hovering {
-                    NSCursor.resizeLeftRight.push()
-                } else {
-                    NSCursor.pop()
+    func makeNSView(context: Context) -> NSSplitView {
+        let splitView = NSSplitView()
+        splitView.isVertical = true
+        splitView.dividerStyle = .thin
+        splitView.delegate = context.coordinator
+        splitView.wantsLayer = true
+        
+        // Ensure no toolbar from split view
+        DispatchQueue.main.async {
+            if let window = splitView.window {
+                window.toolbar = nil
+            }
+        }
+        
+        // Create sidebar hosting view
+        let sidebarHost = NSHostingView(rootView: sidebar)
+        sidebarHost.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Create main hosting view
+        let mainHost = NSHostingView(rootView: main)
+        mainHost.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add subviews
+        splitView.addArrangedSubview(sidebarHost)
+        splitView.addArrangedSubview(mainHost)
+        
+        // Configure holding priorities
+        splitView.setHoldingPriority(.defaultHigh, forSubviewAt: 0) // Sidebar holds its size
+        splitView.setHoldingPriority(.defaultLow, forSubviewAt: 1)  // Main view is flexible
+        
+        // Set initial position
+        splitView.setPosition(sidebarWidth, ofDividerAt: 0)
+        
+        return splitView
+    }
+    
+    func updateNSView(_ splitView: NSSplitView, context: Context) {
+        // Ensure no toolbar appears
+        if let window = splitView.window {
+            window.toolbar = nil
+        }
+        
+        // Update sidebar width if needed
+        if let sidebarView = splitView.arrangedSubviews.first {
+            let currentWidth = sidebarView.frame.width
+            if abs(currentWidth - sidebarWidth) > 1 {
+                splitView.setPosition(sidebarWidth, ofDividerAt: 0)
+            }
+        }
+        
+        // Update the hosting views with new content
+        if splitView.arrangedSubviews.count >= 2,
+           let sidebarHost = splitView.arrangedSubviews[0] as? NSHostingView<AnyView>,
+           let mainHost = splitView.arrangedSubviews[1] as? NSHostingView<AnyView> {
+            sidebarHost.rootView = sidebar
+            mainHost.rootView = main
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, NSSplitViewDelegate {
+        var parent: SplitViewRepresentable
+        
+        init(_ parent: SplitViewRepresentable) {
+            self.parent = parent
+        }
+        
+        func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+            return parent.minWidth
+        }
+        
+        func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+            return parent.maxWidth
+        }
+        
+        func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
+            // Custom resize behavior
+            guard splitView.arrangedSubviews.count == 2 else { return }
+            
+            let sidebarView = splitView.arrangedSubviews[0]
+            let mainView = splitView.arrangedSubviews[1]
+            
+            let dividerThickness = splitView.dividerThickness
+            let totalWidth = splitView.bounds.width
+            let sidebarWidth = min(parent.maxWidth, max(parent.minWidth, sidebarView.frame.width))
+            let mainWidth = totalWidth - sidebarWidth - dividerThickness
+            
+            sidebarView.frame = NSRect(x: 0, y: 0, width: sidebarWidth, height: splitView.bounds.height)
+            mainView.frame = NSRect(x: sidebarWidth + dividerThickness, y: 0, width: mainWidth, height: splitView.bounds.height)
+            
+            // Update binding
+            DispatchQueue.main.async {
+                self.parent.sidebarWidth = sidebarWidth
+            }
+        }
+        
+        func splitViewDidResizeSubviews(_ notification: Notification) {
+            guard let splitView = notification.object as? NSSplitView,
+                  let sidebarView = splitView.arrangedSubviews.first else { return }
+            
+            let newWidth = sidebarView.frame.width
+            if abs(newWidth - parent.sidebarWidth) > 1 {
+                DispatchQueue.main.async {
+                    self.parent.sidebarWidth = newWidth
                 }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        if !isDragging {
-                            isDragging = true
-                            startWidth = sidebarWidth
-                        }
-                        
-                        let targetWidth = startWidth + value.translation.width
-                        let clampedWidth = max(minWidth, min(maxWidth, targetWidth))
-                        
-                        // Use direct assignment without animation for smooth dragging
-                        sidebarWidth = clampedWidth
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                    }
-            )
+        }
     }
 }
 
