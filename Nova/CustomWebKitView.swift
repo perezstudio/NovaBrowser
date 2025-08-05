@@ -19,6 +19,11 @@ class CustomWebKitView: NSView {
     private var currentURL: URL?
     private var profile: Profile? // Associated profile for isolated browsing
     
+    // Public access to the custom web view for delegate management
+    var webView: CustomWebView? {
+        return customWebView
+    }
+    
     // MARK: - Custom WebKit Integration Points
     private var webKitLibraryPath: String?
     private var inspectorBackend: InspectorBackend?
@@ -608,6 +613,16 @@ extension CustomWebKitView: CustomWebViewDelegate {
     
     func customWebView(_ webView: CustomWebView, didFail navigation: Any?, withError error: Error) {
         print("Custom WebKit: Navigation failed - \(error.localizedDescription)")
+    }
+    
+    func customWebView(_ webView: CustomWebView, didUpdateTitle title: String?) {
+        // This will be handled by the WebViewContainer to update the appropriate tab/bookmark
+        print("Custom WebKit: Title updated to: \(title ?? "nil")")
+    }
+    
+    func customWebView(_ webView: CustomWebView, didUpdateFavicon faviconData: Data?) {
+        // This will be handled by the WebViewContainer to update the appropriate tab/bookmark
+        print("Custom WebKit: Favicon updated (\(faviconData?.count ?? 0) bytes)")
     }
 }
 
@@ -1380,6 +1395,8 @@ protocol CustomWebViewDelegate: AnyObject {
     func customWebView(_ webView: CustomWebView, didStartProvisionalNavigation navigation: Any?)
     func customWebView(_ webView: CustomWebView, didFinish navigation: Any?)
     func customWebView(_ webView: CustomWebView, didFail navigation: Any?, withError error: Error)
+    func customWebView(_ webView: CustomWebView, didUpdateTitle title: String?)
+    func customWebView(_ webView: CustomWebView, didUpdateFavicon faviconData: Data?)
 }
 
 protocol CustomWebViewUIDelegate: AnyObject {
@@ -1505,6 +1522,9 @@ class CustomWebView: NSView {
         // Set delegates
         wkWebView.navigationDelegate = self
         wkWebView.uiDelegate = self
+        
+        // Observe title changes
+        wkWebView.addObserver(self, forKeyPath: "title", options: [.new], context: nil)
         
         // Enable inspector context menu by allowing all menu items
         if wkWebView.responds(to: Selector("_setAllowsInspectorElement:")) {
@@ -1866,6 +1886,14 @@ extension CustomWebView: WKNavigationDelegate {
         print("CustomWebView: Finished navigation")
         currentURL = webView.url
         navigationDelegate?.customWebView(self, didFinish: navigation)
+        
+        // Update title after navigation completes
+        updateTitle()
+        
+        // Extract favicon after a short delay to let the page load
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.extractFavicon()
+        }
     }
     
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -1962,4 +1990,75 @@ extension CustomWebView: WKUIDelegate {
         }
     }
     
+    // MARK: - Title and Favicon Updates
+    
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
+        if keyPath == "title" {
+            updateTitle()
+        }
+    }
+    
+    private func updateTitle() {
+        guard let webView = wkWebView else { return }
+        let title = webView.title
+        print("CustomWebView: Title updated to: \(title ?? "nil")")
+        navigationDelegate?.customWebView(self, didUpdateTitle: title)
+    }
+    
+    private func extractFavicon() {
+        guard let webView = wkWebView else { return }
+        
+        let faviconScript = """
+        (function() {
+            const links = document.querySelectorAll('link[rel*="icon"]');
+            const faviconUrls = [];
+            
+            // Look for favicon links
+            for (let link of links) {
+                if (link.href) {
+                    faviconUrls.push(link.href);
+                }
+            }
+            
+            // Fallback to default favicon.ico
+            if (faviconUrls.length === 0) {
+                const baseUrl = window.location.origin;
+                faviconUrls.push(baseUrl + '/favicon.ico');
+            }
+            
+            return faviconUrls[0]; // Return the first favicon URL
+        })();
+        """
+        
+        webView.evaluateJavaScript(faviconScript) { [weak self] result, error in
+            guard let self = self, let faviconUrl = result as? String else {
+                print("CustomWebView: No favicon URL found")
+                return
+            }
+            
+            print("CustomWebView: Found favicon URL: \(faviconUrl)")
+            self.downloadFavicon(from: faviconUrl)
+        }
+    }
+    
+    private func downloadFavicon(from urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let self = self, let data = data, error == nil else {
+                print("CustomWebView: Failed to download favicon: \(error?.localizedDescription ?? "Unknown error")")
+                return
+            }
+            
+            // Verify it's an image
+            if let image = NSImage(data: data) {
+                print("CustomWebView: Successfully downloaded favicon (\(data.count) bytes)")
+                DispatchQueue.main.async {
+                    self.navigationDelegate?.customWebView(self, didUpdateFavicon: data)
+                }
+            } else {
+                print("CustomWebView: Downloaded data is not a valid image")
+            }
+        }.resume()
+    }
 }

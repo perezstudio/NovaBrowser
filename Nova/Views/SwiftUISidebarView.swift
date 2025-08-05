@@ -9,6 +9,233 @@ import SwiftUI
 import SwiftData
 import WebKit
 
+// MARK: - WebView Container Delegate Protocol
+protocol WebViewContainerDelegate: AnyObject {
+    func webViewContainer(_ container: WebViewContainer, didUpdateTitle title: String?, for itemID: String)
+    func webViewContainer(_ container: WebViewContainer, didUpdateFavicon faviconData: Data?, for itemID: String)
+}
+
+// MARK: - WebView Container for Managing Multiple WebViews
+@MainActor
+class WebViewContainer: NSView {
+    private var webViews: [String: CustomWebKitView] = [:]
+    private var webViewToItemMapping: [String: SidebarItem] = [:]
+    private var currentWebViewID: String?
+    
+    // Delegate to notify about title/favicon updates
+    weak var delegate: WebViewContainerDelegate?
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupContainer()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupContainer()
+    }
+    
+    private func setupContainer() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+    
+    func getOrCreateWebView(for id: String, url: URL?, profile: Profile?, sidebarItem: SidebarItem? = nil) -> CustomWebKitView {
+        if let existingWebView = webViews[id] {
+            return existingWebView
+        }
+        
+        // Create new webview for this ID
+        let webView = CustomWebKitView(frame: bounds, profile: profile)
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webViews[id] = webView
+        
+        // Store the mapping between webview and sidebar item for updates
+        if let sidebarItem = sidebarItem {
+            webViewToItemMapping[id] = sidebarItem
+        }
+        
+        // Add to container but keep hidden initially
+        addSubview(webView)
+        
+        // Set constraints to fill container
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: topAnchor),
+            webView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        
+        webView.isHidden = true // Start hidden
+        
+        // Set up a custom delegate wrapper to intercept title/favicon updates
+        let delegateInterceptor = WebKitViewDelegateInterceptor(container: self, itemID: id)
+        objc_setAssociatedObject(webView, "delegateInterceptor", delegateInterceptor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        
+        // Replace the existing delegate with our interceptor that forwards calls
+        if let customWebView = webView.webView {
+            // Store the original delegate
+            delegateInterceptor.originalDelegate = customWebView.navigationDelegate
+            // Set our interceptor as the delegate
+            customWebView.navigationDelegate = delegateInterceptor
+            print("WebViewContainer: Set up delegate interceptor for \(id)")
+        } else {
+            print("WebViewContainer: Could not access CustomWebView for delegate setup")
+        }
+        
+        // Load initial URL only on creation
+        if let url = url {
+            webView.load(URLRequest(url: url))
+        }
+        
+        print("WebViewContainer: Created new webview for ID: \(id)")
+        return webView
+    }
+    
+    func showWebView(for id: String) {
+        // Hide all webviews first
+        for webView in webViews.values {
+            webView.isHidden = true
+        }
+        
+        // Show the requested webview
+        if let webView = webViews[id] {
+            webView.isHidden = false
+            currentWebViewID = id
+            print("WebViewContainer: Showing webview for ID: \(id)")
+        }
+    }
+    
+    func getCurrentWebView() -> CustomWebKitView? {
+        guard let currentID = currentWebViewID else { return nil }
+        return webViews[currentID]
+    }
+    
+    func getWebView(for id: String) -> CustomWebKitView? {
+        return webViews[id]
+    }
+    
+    func removeWebView(for id: String) {
+        if let webView = webViews[id] {
+            webView.removeFromSuperview()
+            webViews.removeValue(forKey: id)
+            webViewToItemMapping.removeValue(forKey: id)
+            
+            if currentWebViewID == id {
+                currentWebViewID = nil
+            }
+            
+            print("WebViewContainer: Removed webview for ID: \(id)")
+        }
+    }
+    
+    func updateTitleAndFavicon(for itemID: String) {
+        guard let webView = webViews[itemID] else { return }
+        
+        // Get the current title from the webview
+        if webView.subviews.first(where: { $0 is CustomWebView }) != nil {
+            // For now, we'll implement a simple polling mechanism
+            // In a real implementation, you'd want proper delegation
+            print("WebViewContainer: updateTitleAndFavicon called for \(itemID)")
+        }
+    }
+    
+    override func layout() {
+        super.layout()
+        // Ensure all webviews match the container size
+        for webView in webViews.values {
+            webView.frame = bounds
+        }
+    }
+}
+
+// MARK: - WebKit View Delegate Interceptor
+@MainActor
+class WebKitViewDelegateInterceptor: NSObject, @preconcurrency CustomWebViewDelegate {
+    weak var container: WebViewContainer?
+    let itemID: String
+    weak var originalDelegate: CustomWebViewDelegate?
+    
+    init(container: WebViewContainer, itemID: String) {
+        self.container = container
+        self.itemID = itemID
+        super.init()
+    }
+    
+    // Forward all delegate calls to the original delegate first, then handle our custom logic
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didStartProvisionalNavigation navigation: Any?) {
+        Task { @MainActor in
+            originalDelegate?.customWebView(webView, didStartProvisionalNavigation: navigation)
+        }
+    }
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didFinish navigation: Any?) {
+        Task { @MainActor in
+            originalDelegate?.customWebView(webView, didFinish: navigation)
+        }
+    }
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didFail navigation: Any?, withError error: Error) {
+        Task { @MainActor in
+            originalDelegate?.customWebView(webView, didFail: navigation, withError: error)
+        }
+    }
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didUpdateTitle title: String?) {
+        Task { @MainActor in
+            // Forward to original delegate first
+            originalDelegate?.customWebView(webView, didUpdateTitle: title)
+            
+            // Then notify our container
+            container?.delegate?.webViewContainer(container!, didUpdateTitle: title, for: itemID)
+        }
+    }
+    
+    nonisolated func customWebView(_ webView: CustomWebView, didUpdateFavicon faviconData: Data?) {
+        Task { @MainActor in
+            // Forward to original delegate first
+            originalDelegate?.customWebView(webView, didUpdateFavicon: faviconData)
+            
+            // Then notify our container
+            container?.delegate?.webViewContainer(container!, didUpdateFavicon: faviconData, for: itemID)
+        }
+    }
+}
+
+// MARK: - WebView Manager Singleton
+@MainActor
+class WebViewManager {
+    static let shared = WebViewManager()
+    private var container: WebViewContainer?
+    
+    private init() {}
+    
+    func setContainer(_ container: WebViewContainer) {
+        self.container = container
+    }
+    
+    func getOrCreateWebView(for id: String, url: URL?, profile: Profile?, sidebarItem: SidebarItem? = nil) -> CustomWebKitView? {
+        return container?.getOrCreateWebView(for: id, url: url, profile: profile, sidebarItem: sidebarItem)
+    }
+    
+    func showWebView(for id: String) {
+        container?.showWebView(for: id)
+    }
+    
+    func getCurrentWebView() -> CustomWebKitView? {
+        return container?.getCurrentWebView()
+    }
+    
+    func getWebView(for id: String) -> CustomWebKitView? {
+        return container?.getWebView(for: id)
+    }
+    
+    func removeWebView(for id: String) {
+        container?.removeWebView(for: id)
+    }
+}
+
 struct NovaNavigationView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var dataManager = DataManager.shared
@@ -19,6 +246,7 @@ struct NovaNavigationView: View {
     @State private var showingSpaceSheet = false
     @State private var editingSpace: Space?
     @State private var sidebarVisible = true
+    @State private var currentURL = ""
     
     var body: some View {
         ZStack(alignment: .leading) {
@@ -30,7 +258,8 @@ struct NovaNavigationView: View {
                     showingProfileSheet: $showingProfileSheet,
                     showingSpaceSheet: $showingSpaceSheet,
                     editingSpace: $editingSpace,
-                    sidebarVisible: $sidebarVisible
+                    sidebarVisible: $sidebarVisible,
+                    currentURL: $currentURL
                 )
                 .frame(width: 280)
                 .background(
@@ -49,7 +278,8 @@ struct NovaNavigationView: View {
                 // Floating web view with custom URL bar
                 FloatingWebContentView(
                     selectedItem: selectedItem,
-                    sidebarVisible: $sidebarVisible
+                    sidebarVisible: $sidebarVisible,
+                    currentURL: $currentURL
                 )
             }
         }
@@ -79,6 +309,7 @@ struct SidebarContentView: View {
     @Binding var showingSpaceSheet: Bool
     @Binding var editingSpace: Space?
     @Binding var sidebarVisible: Bool
+    @Binding var currentURL: String
     
     var body: some View {
         VStack(spacing: 0) {
@@ -201,7 +432,7 @@ struct SidebarContentView: View {
                                     BookmarkRow(
                                         bookmark: bookmark,
                                         isSelected: selectedItem == .bookmark(bookmark),
-                                        onTap: { selectedItem = .bookmark(bookmark) }
+                                        onTap: { handleBookmarkTap(bookmark) }
                                     )
                                 }
                             }
@@ -229,14 +460,15 @@ struct SidebarContentView: View {
                             }
                             .padding(.horizontal, 16)
                             
-                            // Tabs
-                            let tabs = dataManager.loadTabs(for: currentSpace)
-                            ForEach(tabs, id: \.id) { tab in
+                            // Tabs section - show all regular tabs
+                            let allTabs = dataManager.loadTabs(for: currentSpace)
+                            ForEach(allTabs, id: \.id) { tab in
                                 TabRow(
                                     tab: tab, 
                                     isSelected: selectedItem == .tab(tab),
                                     onTap: { selectedItem = .tab(tab) },
-                                    onClose: { selectedItem = nil }
+                                    onClose: { selectedItem = nil },
+                                    onBookmark: { bookmarkTab(tab) }
                                 )
                             }
                             
@@ -274,6 +506,48 @@ struct SidebarContentView: View {
         Task { @MainActor in
             let tab = await dataManager.addTab(title: "New Tab", url: "https://google.com", to: space)
             selectedItem = .tab(tab)
+        }
+    }
+    
+    private func handleBookmarkTap(_ bookmark: Bookmark) {
+        // Simply select the bookmark - the webview will be rendered for this bookmark
+        selectedItem = .bookmark(bookmark)
+    }
+    
+    private func bookmarkTab(_ tab: Tab) {
+        guard let space = tab.space else { return }
+        
+        Task { @MainActor in
+            // Use the current URL from the webview, not the original tab URL
+            let urlToBookmark = currentURL.isEmpty ? tab.url : currentURL
+            
+            // Get current page title - for now use descriptive title from URL
+            let titleToBookmark: String
+            // Create a descriptive title from the URL
+            if let url = URL(string: urlToBookmark) {
+                titleToBookmark = url.host ?? url.absoluteString
+            } else {
+                titleToBookmark = tab.title
+            }
+            
+            // Create bookmark from tab with current URL and title
+            await dataManager.addBookmark(title: titleToBookmark, url: urlToBookmark, to: space)
+            
+            // If this tab is currently selected, switch selection to the new bookmark
+            if selectedItem == .tab(tab) {
+                // Find the newly created bookmark
+                let bookmarks = dataManager.loadBookmarks(for: space)
+                if let newBookmark = bookmarks.first(where: { $0.url == urlToBookmark }) {
+                    selectedItem = .bookmark(newBookmark)
+                } else {
+                    selectedItem = nil
+                }
+            }
+            
+            // Remove the tab since it's now a bookmark
+            // Clean up the webview for this tab
+            WebViewManager.shared.removeWebView(for: "tab-\(tab.id)")
+            await dataManager.closeTab(tab)
         }
     }
     
@@ -407,6 +681,21 @@ struct BookmarkRow: View {
     let isSelected: Bool
     let onTap: () -> Void
     @State private var isHovering = false
+    @StateObject private var dataManager = DataManager.shared
+    
+    // Check if bookmark is currently open as a tab
+    private var isOpenAsTab: Bool {
+        guard let space = bookmark.space else { return false }
+        let tabs = dataManager.loadTabs(for: space)
+        return tabs.contains { $0.url == bookmark.url }
+    }
+    
+    // Find the matching tab if it exists
+    private var matchingTab: Tab? {
+        guard let space = bookmark.space else { return nil }
+        let tabs = dataManager.loadTabs(for: space)
+        return tabs.first { $0.url == bookmark.url }
+    }
     
     var body: some View {
         HStack {
@@ -428,20 +717,41 @@ struct BookmarkRow: View {
             Spacer()
             
             if isHovering {
-                Button(action: {
-                    Task { @MainActor in
-                        await DataManager.shared.deleteBookmark(bookmark)
+                if isOpenAsTab {
+                    // Show minimize icon to close the tab but keep bookmark
+                    Button(action: {
+                        Task { @MainActor in
+                            if let tab = matchingTab {
+                                await DataManager.shared.closeTab(tab)
+                            }
+                        }
+                    }) {
+                        Image(systemName: "minus.circle")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.orange)
+                            .frame(width: 16, height: 16)
+                            .background(Color.orange.opacity(0.1))
+                            .clipShape(Circle())
                     }
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .frame(width: 16, height: 16)
-                        .background(Color.black.opacity(0.1))
-                        .clipShape(Circle())
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Close Tab (Keep Bookmark)")
+                } else {
+                    // Show delete icon to remove bookmark
+                    Button(action: {
+                        Task { @MainActor in
+                            await DataManager.shared.deleteBookmark(bookmark)
+                        }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(width: 16, height: 16)
+                            .background(Color.black.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .help("Remove Bookmark")
                 }
-                .buttonStyle(PlainButtonStyle())
-                .help("Remove Bookmark")
             }
         }
         .padding(.horizontal, 16)
@@ -481,6 +791,7 @@ struct TabRow: View {
     let isSelected: Bool
     let onTap: () -> Void
     var onClose: (() -> Void)? = nil
+    var onBookmark: (() -> Void)? = nil
     @State private var isHovering = false
     
     var body: some View {
@@ -565,6 +876,9 @@ struct TabRow: View {
                     }
                     await DataManager.shared.closeTab(tab)
                 }
+            }
+            Button("Bookmark Tab") { 
+                onBookmark?()
             }
         }
     }
@@ -652,8 +966,7 @@ struct PinnedTabRow: View {
 struct FloatingWebContentView: View {
     let selectedItem: SidebarItem?
     @Binding var sidebarVisible: Bool
-    
-    @State private var currentURL = ""
+    @Binding var currentURL: String
     @State private var editingURL = ""
     @State private var isEditingURL = false
     @State private var webView: CustomWebKitView?
@@ -766,81 +1079,49 @@ struct FloatingWebContentView: View {
                 alignment: .bottom
             )
             
-            // Web content
-            if let selectedItem = selectedItem {
-                switch selectedItem {
-                case .bookmark(let bookmark):
-                    WebViewRepresentable(
-                        url: URL(string: bookmark.url),
-                        profile: bookmark.space?.profile,
-                        webView: $webView,
-                        currentURL: $currentURL,
-                        canGoBack: $canGoBack,
-                        canGoForward: $canGoForward
-                    )
-                    .id(bookmark.id) // Force new instance when switching items
-                    .onAppear {
-                        currentURL = bookmark.url
-                    }
-                case .tab(let tab):
-                    WebViewRepresentable(
-                        url: URL(string: tab.url),
-                        profile: tab.space?.profile,
-                        webView: $webView,
-                        currentURL: $currentURL,
-                        canGoBack: $canGoBack,
-                        canGoForward: $canGoForward
-                    )
-                    .id(tab.id) // Force new instance when switching items
-                    .onAppear {
-                        currentURL = tab.url
-                    }
-                case .pinnedTab(let pinnedTab):
-                    WebViewRepresentable(
-                        url: URL(string: pinnedTab.url),
-                        profile: pinnedTab.profile,
-                        webView: $webView,
-                        currentURL: $currentURL,
-                        canGoBack: $canGoBack,
-                        canGoForward: $canGoForward
-                    )
-                    .id(pinnedTab.id) // Force new instance when switching items
-                    .onAppear {
-                        currentURL = pinnedTab.url
-                    }
-                }
-            } else {
-                // Empty state with material background
-                ZStack {
-                    // Material background
-                    VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
-                        .opacity(0.8)
-                    
-                    VStack(spacing: 16) {
-                        Spacer()
+            // Web content - single container manages all webviews
+            WebViewContainerRepresentable(
+                selectedItem: selectedItem,
+                webView: $webView,
+                currentURL: $currentURL,
+                canGoBack: $canGoBack,
+                canGoForward: $canGoForward
+            )
+            .overlay {
+                // Show empty state when no item is selected
+                if selectedItem == nil {
+                    // Empty state with material background
+                    ZStack {
+                        // Material background
+                        VisualEffectView(material: .underWindowBackground, blendingMode: .behindWindow)
+                            .opacity(0.8)
                         
-                        // Icon with subtle animation
-                        Image(systemName: "sidebar.left")
-                            .font(.system(size: 72, weight: .thin))
-                            .foregroundColor(.secondary.opacity(0.3))
-                            .symbolEffect(.pulse, options: .repeating.speed(0.5))
-                        
-                        VStack(spacing: 8) {
-                            Text("No Tab Selected")
-                                .font(.title2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary.opacity(0.9))
+                        VStack(spacing: 16) {
+                            Spacer()
                             
-                            Text("Select a tab from the sidebar or create a new one")
-                                .font(.body)
-                                .foregroundColor(.secondary.opacity(0.6))
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: 300)
+                            // Icon with subtle animation
+                            Image(systemName: "sidebar.left")
+                                .font(.system(size: 72, weight: .thin))
+                                .foregroundColor(.secondary.opacity(0.3))
+                                .symbolEffect(.pulse, options: .repeating.speed(0.5))
+                            
+                            VStack(spacing: 8) {
+                                Text("No Tab Selected")
+                                    .font(.title2)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary.opacity(0.9))
+                                
+                                Text("Select a tab from the sidebar or create a new one")
+                                    .font(.body)
+                                    .foregroundColor(.secondary.opacity(0.6))
+                                    .multilineTextAlignment(.center)
+                                    .frame(maxWidth: 300)
+                            }
+                            
+                            Spacer()
                         }
-                        
-                        Spacer()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
@@ -870,52 +1151,90 @@ struct FloatingWebContentView: View {
     }
 }
 
-struct WebViewRepresentable: NSViewRepresentable {
-    let url: URL?
-    let profile: Profile?
+struct WebViewContainerRepresentable: NSViewRepresentable {
+    let selectedItem: SidebarItem?
     @Binding var webView: CustomWebKitView?
     @Binding var currentURL: String
     @Binding var canGoBack: Bool
     @Binding var canGoForward: Bool
     
+    private let webViewManager = WebViewManager.shared
+    
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
     
-    func makeNSView(context: Context) -> CustomWebKitView {
-        let webView = CustomWebKitView(frame: .zero, profile: profile)
+    func makeNSView(context: Context) -> WebViewContainer {
+        let container = WebViewContainer(frame: .zero)
+        container.delegate = context.coordinator
+        webViewManager.setContainer(container)
         
-        // Store reference to webView immediately
+        // If we have a selected item, create and show its webview
+        if let item = selectedItem {
+            let webView = container.getOrCreateWebView(
+                for: item.itemID,
+                url: item.url,
+                profile: item.profile,
+                sidebarItem: item
+            )
+            container.showWebView(for: item.itemID)
+            
+            // Update binding
+            DispatchQueue.main.async {
+                self.webView = webView
+            }
+            
+            // Start polling
+            context.coordinator.startPolling(webView)
+        }
+        
+        return container
+    }
+    
+    func updateNSView(_ container: WebViewContainer, context: Context) {
+        guard let item = selectedItem else {
+            // No item selected, stop polling
+            context.coordinator.stopPolling()
+            
+            DispatchQueue.main.async {
+                self.webView = nil
+            }
+            return
+        }
+        
+        // Get or create webview for this item
+        let webView = container.getOrCreateWebView(
+            for: item.itemID,
+            url: item.url,
+            profile: item.profile,
+            sidebarItem: item
+        )
+        
+        // Show this webview
+        container.showWebView(for: item.itemID)
+        
+        // Update binding
         DispatchQueue.main.async {
             self.webView = webView
         }
         
-        // Load URL only on initial creation
-        if let url = url {
-            webView.load(URLRequest(url: url))
-        }
-        
-        // Start polling for navigation state updates
+        // Start polling for the current webview
         context.coordinator.startPolling(webView)
-        
-        return webView
     }
     
-    func updateNSView(_ nsView: CustomWebKitView, context: Context) {
-        // Don't reload on updates - the web view should maintain its own navigation state
-        // This prevents the reload loop when clicking links
-    }
-    
-    class Coordinator: NSObject {
-        var parent: WebViewRepresentable
+    class Coordinator: NSObject, WebViewContainerDelegate {
+        var parent: WebViewContainerRepresentable
         var timer: Timer?
         weak var webView: CustomWebKitView?
         
-        init(_ parent: WebViewRepresentable) {
+        init(_ parent: WebViewContainerRepresentable) {
             self.parent = parent
         }
         
         func startPolling(_ webView: CustomWebKitView) {
+            // Stop any existing timer
+            timer?.invalidate()
+            
             self.webView = webView
             
             // Poll every 0.5 seconds to update navigation state
@@ -935,6 +1254,168 @@ struct WebViewRepresentable: NSViewRepresentable {
             }
         }
         
+        func stopPolling() {
+            timer?.invalidate()
+            timer = nil
+            webView = nil
+        }
+        
+        // MARK: - WebViewContainerDelegate
+        
+        func webViewContainer(_ container: WebViewContainer, didUpdateTitle title: String?, for itemID: String) {
+            print("WebViewContainer: Title updated for \(itemID): \(title ?? "nil")")
+            
+            // Update the appropriate data model based on itemID
+            Task { @MainActor in
+                await self.updateTitleForItem(itemID: itemID, title: title)
+            }
+        }
+        
+        func webViewContainer(_ container: WebViewContainer, didUpdateFavicon faviconData: Data?, for itemID: String) {
+            print("WebViewContainer: Favicon updated for \(itemID): \(faviconData?.count ?? 0) bytes")
+            
+            // Update the appropriate data model based on itemID
+            Task { @MainActor in
+                await self.updateFaviconForItem(itemID: itemID, faviconData: faviconData)
+            }
+        }
+        
+        private func updateTitleForItem(itemID: String, title: String?) async {
+            guard let title = title, !title.isEmpty else { return }
+            
+            print("WebViewContainer: Updating title for \(itemID) to: \(title)")
+            
+            let dataManager = DataManager.shared
+            
+            if itemID.hasPrefix("bookmark-") {
+                let bookmarkIdString = String(itemID.dropFirst(9))
+                if let bookmarkId = UUID(uuidString: bookmarkIdString) {
+                    // Find the bookmark and update its title
+                    await updateBookmarkTitle(bookmarkId: bookmarkId, title: title)
+                }
+            } else if itemID.hasPrefix("tab-") {
+                let tabIdString = String(itemID.dropFirst(4))
+                if let tabId = UUID(uuidString: tabIdString) {
+                    // Find the tab and update its title
+                    await updateTabTitle(tabId: tabId, title: title)
+                }
+            } else if itemID.hasPrefix("pinnedTab-") {
+                let pinnedTabIdString = String(itemID.dropFirst(10))
+                if let pinnedTabId = UUID(uuidString: pinnedTabIdString) {
+                    // Find the pinned tab and update its title
+                    await updatePinnedTabTitle(pinnedTabId: pinnedTabId, title: title)
+                }
+            }
+        }
+        
+        private func updateFaviconForItem(itemID: String, faviconData: Data?) async {
+            guard let faviconData = faviconData else { return }
+            
+            print("WebViewContainer: Updating favicon for \(itemID) (\(faviconData.count) bytes)")
+            
+            if itemID.hasPrefix("bookmark-") {
+                let bookmarkIdString = String(itemID.dropFirst(9))
+                if let bookmarkId = UUID(uuidString: bookmarkIdString) {
+                    await updateBookmarkFavicon(bookmarkId: bookmarkId, faviconData: faviconData)
+                }
+            } else if itemID.hasPrefix("tab-") {
+                let tabIdString = String(itemID.dropFirst(4))
+                if let tabId = UUID(uuidString: tabIdString) {
+                    await updateTabFavicon(tabId: tabId, faviconData: faviconData)
+                }
+            } else if itemID.hasPrefix("pinnedTab-") {
+                let pinnedTabIdString = String(itemID.dropFirst(10))
+                if let pinnedTabId = UUID(uuidString: pinnedTabIdString) {
+                    await updatePinnedTabFavicon(pinnedTabId: pinnedTabId, faviconData: faviconData)
+                }
+            }
+        }
+        
+        // Helper methods to update specific data model types
+        private func updateBookmarkTitle(bookmarkId: UUID, title: String) async {
+            let dataManager = await DataManager.shared
+            
+            // Load all bookmarks and find the one with matching ID
+            for space in await dataManager.spaces {
+                let bookmarks = await dataManager.loadBookmarks(for: space)
+                if let bookmark = bookmarks.first(where: { $0.id == bookmarkId }) {
+                    bookmark.title = title
+                    await dataManager.save()
+                    print("Updated bookmark title: \(title)")
+                    return
+                }
+            }
+        }
+        
+        private func updateTabTitle(tabId: UUID, title: String) async {
+            let dataManager = await DataManager.shared
+            
+            // Load all tabs and find the one with matching ID
+            for space in await dataManager.spaces {
+                let tabs = await dataManager.loadTabs(for: space)
+                if let tab = tabs.first(where: { $0.id == tabId }) {
+                    tab.title = title
+                    await dataManager.save()
+                    print("Updated tab title: \(title)")
+                    return
+                }
+            }
+        }
+        
+        private func updatePinnedTabTitle(pinnedTabId: UUID, title: String) async {
+            let dataManager = await DataManager.shared
+            
+            // Load all pinned tabs and find the one with matching ID
+            for profile in await dataManager.profiles {
+                let pinnedTabs = await dataManager.loadPinnedTabs(for: profile)
+                if let pinnedTab = pinnedTabs.first(where: { $0.id == pinnedTabId }) {
+                    pinnedTab.title = title
+                    await dataManager.save()
+                    print("Updated pinned tab title: \(title)")
+                    return
+                }
+            }
+        }
+        
+        private func updateBookmarkFavicon(bookmarkId: UUID, faviconData: Data) async {
+            let dataManager = await DataManager.shared
+            
+            for space in await dataManager.spaces {
+                let bookmarks = await dataManager.loadBookmarks(for: space)
+                if let bookmark = bookmarks.first(where: { $0.id == bookmarkId }) {
+                    await dataManager.updateFavicon(for: bookmark, with: faviconData)
+                    print("Updated bookmark favicon")
+                    return
+                }
+            }
+        }
+        
+        private func updateTabFavicon(tabId: UUID, faviconData: Data) async {
+            let dataManager = await DataManager.shared
+            
+            for space in await dataManager.spaces {
+                let tabs = await dataManager.loadTabs(for: space)
+                if let tab = tabs.first(where: { $0.id == tabId }) {
+                    await dataManager.updateFavicon(for: tab, with: faviconData)
+                    print("Updated tab favicon")
+                    return
+                }
+            }
+        }
+        
+        private func updatePinnedTabFavicon(pinnedTabId: UUID, faviconData: Data) async {
+            let dataManager = await DataManager.shared
+            
+            for profile in await dataManager.profiles {
+                let pinnedTabs = await dataManager.loadPinnedTabs(for: profile)
+                if let pinnedTab = pinnedTabs.first(where: { $0.id == pinnedTabId }) {
+                    await dataManager.updateFavicon(for: pinnedTab, with: faviconData)
+                    print("Updated pinned tab favicon")
+                    return
+                }
+            }
+        }
+        
         deinit {
             timer?.invalidate()
         }
@@ -947,6 +1428,40 @@ enum SidebarItem: Hashable {
     case bookmark(Bookmark)
     case tab(Tab)
     case pinnedTab(PinnedTab)
+    
+    // Helper properties for the container approach
+    var itemID: String {
+        switch self {
+        case .bookmark(let bookmark):
+            return "bookmark-\(bookmark.id)"
+        case .tab(let tab):
+            return "tab-\(tab.id)"
+        case .pinnedTab(let pinnedTab):
+            return "pinnedTab-\(pinnedTab.id)"
+        }
+    }
+    
+    var url: URL? {
+        switch self {
+        case .bookmark(let bookmark):
+            return URL(string: bookmark.url)
+        case .tab(let tab):
+            return URL(string: tab.url)
+        case .pinnedTab(let pinnedTab):
+            return URL(string: pinnedTab.url)
+        }
+    }
+    
+    var profile: Profile? {
+        switch self {
+        case .bookmark(let bookmark):
+            return bookmark.space?.profile
+        case .tab(let tab):
+            return tab.space?.profile
+        case .pinnedTab(let pinnedTab):
+            return pinnedTab.profile
+        }
+    }
     
     func hash(into hasher: inout Hasher) {
         switch self {
