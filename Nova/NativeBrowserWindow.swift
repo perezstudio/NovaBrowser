@@ -67,8 +67,6 @@ class NativeBrowserWindow: NSWindowController {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
         
-        // Make window movable by background
-        window.isMovableByWindowBackground = true
         window.hasShadow = true
     }
     
