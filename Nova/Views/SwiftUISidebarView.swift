@@ -414,7 +414,7 @@ struct SidebarContentView: View {
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                    .padding(.horizontal, 16)
+                                    .padding(.horizontal, 4)
                                 
                                 ForEach(pinnedTabs) { pinnedTab in
                                     PinnedTabRow(
@@ -437,7 +437,7 @@ struct SidebarContentView: View {
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
-                                    .padding(.horizontal, 16)
+                                    .padding(.horizontal, 4)
                                 
                                 ForEach(bookmarks, id: \.id) { bookmark in
                                     BookmarkRow(
@@ -469,7 +469,7 @@ struct SidebarContentView: View {
                                 
                                 Spacer()
                             }
-                            .padding(.horizontal, 16)
+                            .padding(.horizontal, 4)
                             
                             // Tabs section - show all regular tabs
                             let allTabs = dataManager.loadTabs(for: currentSpace)
@@ -485,18 +485,32 @@ struct SidebarContentView: View {
                             
                             // Add Tab Button
                             Button(action: { createNewTab(in: currentSpace) }) {
-                                Label("New Tab", systemImage: "plus")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 6)
+                                HStack {
+                                    Image(systemName: "plus")
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 16, height: 16)
+                                    
+                                    Text("New Tab")
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                        .foregroundColor(.secondary)
+                                    
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.primary.opacity(0.05))
+                                )
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
                     }
                 }
                 .padding(.vertical, 12)
+                .padding(.horizontal, 12)
             }
             
             // Bottom spaces bar
@@ -595,6 +609,7 @@ struct SpacesBottomBar: View {
             .frame(height: 44)
             .padding(.horizontal, 12)
         }
+        .padding(.bottom, 12)
     }
     
     private var needsScrolling: Bool {
@@ -765,7 +780,7 @@ struct BookmarkRow: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
@@ -850,7 +865,7 @@ struct TabRow: View {
                     .frame(width: 6, height: 6)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
@@ -942,7 +957,7 @@ struct PinnedTabRow: View {
                 .help("Unpin Tab")
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
