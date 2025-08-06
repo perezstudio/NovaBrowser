@@ -66,10 +66,10 @@ class NativeBrowserWindow: NSWindowController {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         
-        // Hide standard window buttons - we have custom ones in sidebar
-        window.standardWindowButton(.closeButton)?.isHidden = true
-        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        window.standardWindowButton(.zoomButton)?.isHidden = true
+        // Keep standard window buttons visible while hiding title bar
+        window.standardWindowButton(.closeButton)?.isHidden = false
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        window.standardWindowButton(.zoomButton)?.isHidden = false
         
         // Remove toolbar completely
         window.toolbar = nil
@@ -90,9 +90,9 @@ class NativeBrowserWindow: NSWindowController {
         
         windowContentView.addSubview(hostingView)
         
-        // Fill the entire window content area - extend into title bar
+        // Fill the entire window content area - extend into title bar with larger offset
         NSLayoutConstraint.activate([
-            hostingView.topAnchor.constraint(equalTo: windowContentView.topAnchor, constant: -28), // Negative offset to extend into title bar
+            hostingView.topAnchor.constraint(equalTo: windowContentView.topAnchor, constant: -32), // Larger offset to fully cover title bar
             hostingView.leadingAnchor.constraint(equalTo: windowContentView.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: windowContentView.trailingAnchor),
             hostingView.bottomAnchor.constraint(equalTo: windowContentView.bottomAnchor)

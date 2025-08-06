@@ -326,64 +326,8 @@ struct SidebarContentView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Traffic lights header - same height as URL bar
+            // Header with hide sidebar button only - same height as URL bar
             HStack(spacing: 0) {
-                // Custom traffic light buttons
-                HStack(spacing: 8) {
-                    // Close button
-                    Button(action: { 
-                        if let window = NSApp.keyWindow {
-                            window.performClose(nil)
-                        }
-                    }) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 12, height: 12)
-                            .overlay(
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 6, weight: .bold))
-                                    .foregroundColor(.black.opacity(0.6))
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Minimize button
-                    Button(action: {
-                        if let window = NSApp.keyWindow {
-                            window.performMiniaturize(nil)
-                        }
-                    }) {
-                        Circle()
-                            .fill(Color.yellow)
-                            .frame(width: 12, height: 12)
-                            .overlay(
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.6))
-                                    .frame(width: 6, height: 1)
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    
-                    // Zoom button
-                    Button(action: {
-                        if let window = NSApp.keyWindow {
-                            window.performZoom(nil)
-                        }
-                    }) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 12, height: 12)
-                            .overlay(
-                                Image(systemName: "plus")
-                                    .font(.system(size: 6, weight: .bold))
-                                    .foregroundColor(.black.opacity(0.6))
-                                    .rotationEffect(.degrees(45))
-                            )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-                .padding(.leading, 12)
-                
                 Spacer()
                 
                 // Hide sidebar button
@@ -395,7 +339,7 @@ struct SidebarContentView: View {
                 .buttonStyle(PlainButtonStyle())
                 .padding(.trailing, 12)
             }
-            .padding(.vertical, 8)
+            .padding(.vertical, 16)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
@@ -1082,6 +1026,7 @@ struct FloatingWebContentView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(Color(NSColor.controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 
                 // Action buttons (removed plus button)
                 Menu {
@@ -1100,7 +1045,8 @@ struct FloatingWebContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .padding(.top, sidebarVisible ? 0 : 28) // Add top padding when sidebar is closed to account for title bar
+            .padding(.leading, sidebarVisible ? 0 : 80) // Add left padding when sidebar is closed to account for window controls
+            .padding(.top, sidebarVisible ? 0 : 32) // Add top padding when sidebar is closed to account for title bar
             .background(.ultraThinMaterial)
             .overlay(
                 Rectangle()
