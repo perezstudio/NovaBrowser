@@ -926,7 +926,7 @@ struct PinnedTabsGrid: View {
     var body: some View {
         LazyVGrid(columns: gridItems, spacing: 6) {
             ForEach(pinnedTabs) { pinnedTab in
-                PinnedTabSquare(
+                PinnedTabBox(
                     pinnedTab: pinnedTab,
                     isSelected: selectedItem == .pinnedTab(pinnedTab),
                     onTap: { onTap(pinnedTab) },
@@ -934,15 +934,16 @@ struct PinnedTabsGrid: View {
                 )
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 4)
     }
 }
 
-/// Individual square tab component for pinned tabs grid
-/// - Displays favicon/icon and tab title
-/// - Shows close button in top-right corner on hover
-/// - Maintains 1:1 aspect ratio (square shape)
-struct PinnedTabSquare: View {
+/// Individual tab component for pinned tabs grid
+/// - Displays favicon/icon only (no title text)
+/// - Delete option available in context menu (right-click)
+/// - Fills available width with minimum height of 40px
+/// - Uses same styling as regular tabs (corner radius 6, hover effects)
+struct PinnedTabBox: View {
     let pinnedTab: PinnedTab
     let isSelected: Bool
     let onTap: () -> Void
@@ -950,75 +951,30 @@ struct PinnedTabSquare: View {
     @State private var isHovering = false
     
     var body: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        isSelected ? Color.accentColor.opacity(0.2) : 
-                        (isHovering ? Color.primary.opacity(0.08) : Color(NSColor.controlBackgroundColor))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                isSelected ? Color.accentColor.opacity(0.6) : 
-                                Color.primary.opacity(0.1), 
-                                lineWidth: isSelected ? 1.5 : 0.5
-                            )
-                    )
-                
-                ZStack {
-                    // Main favicon/icon
-                    if let faviconData = pinnedTab.faviconData,
-                       let nsImage = NSImage(data: faviconData) {
-                        Image(nsImage: nsImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 20, height: 20)
-                    } else {
-                        Image(systemName: "pin.fill")
-                            .foregroundColor(.secondary)
-                            .frame(width: 20, height: 20)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    
-                    // Close button in top-right corner
-                    if isHovering {
-                        VStack {
-                            HStack {
-                                Spacer()
-                                Button(action: {
-                                    Task { @MainActor in
-                                        onClose()
-                                        await DataManager.shared.removePinnedTab(pinnedTab)
-                                    }
-                                }) {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .frame(width: 16, height: 16)
-                                        .background(Color.red.opacity(0.8))
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .help("Unpin Tab")
-                                .offset(x: 4, y: -4)
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-                .padding(8)
+        Group {
+            // Main favicon/icon
+            if let faviconData = pinnedTab.faviconData,
+               let nsImage = NSImage(data: faviconData) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+            } else {
+                Image(systemName: "pin")
+                    .foregroundColor(.secondary)
+                    .frame(width: 20, height: 20)
+                    .font(.system(size: 14, weight: .medium))
             }
-            .aspectRatio(1, contentMode: .fit) // This makes it square
-            
-            Text(pinnedTab.title)
-                .font(.caption2)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .truncationMode(.tail)
-                .foregroundColor(.primary)
-                .frame(maxWidth: .infinity, minHeight: 20)
         }
+        .frame(maxWidth: .infinity, minHeight: 40) // Fill width, minimum height
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isSelected ? Color.accentColor.opacity(0.2) : 
+                    (isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        )
         .contentShape(Rectangle())
         .onTapGesture {
             onTap()
@@ -1029,6 +985,14 @@ struct PinnedTabSquare: View {
             }
         }
         .help(pinnedTab.title)
+        .contextMenu {
+            Button("Unpin Tab") {
+                Task { @MainActor in
+                    onClose()
+                    await DataManager.shared.removePinnedTab(pinnedTab)
+                }
+            }
+        }
     }
 }
 
