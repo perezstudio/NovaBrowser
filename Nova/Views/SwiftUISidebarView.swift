@@ -892,9 +892,10 @@ struct TabRow: View {
 }
 
 /// Responsive grid layout for pinned tabs
-/// - Displays tabs as squares in adaptive columns based on sidebar width
+/// - Displays tabs in adaptive columns based on sidebar width
 /// - Columns: 2 (narrow) -> 3 (default) -> 4 (medium) -> 5 (wide) -> 6 (very wide)
-/// - Each tab shows favicon and title, with close button on hover
+/// - Tabs stretch to fill row width when fewer than max columns
+/// - Each tab shows favicon with context menu for unpinning
 struct PinnedTabsGrid: View {
     let pinnedTabs: [PinnedTab]
     let selectedItem: SidebarItem?
@@ -919,19 +920,22 @@ struct PinnedTabsGrid: View {
         }
     }
     
-    private var gridItems: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 6), count: columnCount)
-    }
-    
     var body: some View {
-        LazyVGrid(columns: gridItems, spacing: 6) {
-            ForEach(pinnedTabs) { pinnedTab in
-                PinnedTabBox(
-                    pinnedTab: pinnedTab,
-                    isSelected: selectedItem == .pinnedTab(pinnedTab),
-                    onTap: { onTap(pinnedTab) },
-                    onClose: onClose
-                )
+        VStack(spacing: 6) {
+            // Group tabs into rows based on column count
+            ForEach(Array(stride(from: 0, to: pinnedTabs.count, by: columnCount)), id: \.self) { rowIndex in
+                let rowTabs = Array(pinnedTabs[rowIndex..<min(rowIndex + columnCount, pinnedTabs.count)])
+                
+                HStack(spacing: 6) {
+                    ForEach(rowTabs) { pinnedTab in
+                        PinnedTabBox(
+                            pinnedTab: pinnedTab,
+                            isSelected: selectedItem == .pinnedTab(pinnedTab),
+                            onTap: { onTap(pinnedTab) },
+                            onClose: onClose
+                        )
+                    }
+                }
             }
         }
         .padding(.horizontal, 4)
@@ -942,7 +946,7 @@ struct PinnedTabsGrid: View {
 /// - Displays favicon/icon only (no title text)
 /// - Delete option available in context menu (right-click)
 /// - Fills available width with minimum height of 40px
-/// - Uses same styling as regular tabs (corner radius 6, hover effects)
+/// - Uses squircle styling (corner radius 12) with thin border and hover effects
 struct PinnedTabBox: View {
     let pinnedTab: PinnedTab
     let isSelected: Bool
@@ -969,10 +973,17 @@ struct PinnedTabBox: View {
         .frame(maxWidth: .infinity, minHeight: 40) // Fill width, minimum height
         .padding(8)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(
                     isSelected ? Color.accentColor.opacity(0.2) : 
                     (isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(
+                    isSelected ? Color.accentColor.opacity(0.4) : Color.primary.opacity(0.15),
+                    lineWidth: 0.5
                 )
         )
         .contentShape(Rectangle())
