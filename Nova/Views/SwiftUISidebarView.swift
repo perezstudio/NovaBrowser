@@ -324,6 +324,8 @@ struct SidebarContentView: View {
     @Binding var currentURL: String
     let sidebarWidth: CGFloat
     
+    @State private var isHoveringNewTab = false
+    
     var body: some View {
         VStack(spacing: 0) {
             // Header with hide sidebar button only - same height as URL bar
@@ -447,11 +449,16 @@ struct SidebarContentView: View {
                                 .padding(.vertical, 6)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color.primary.opacity(0.05))
+                                        .fill(isHoveringNewTab ? Color.primary.opacity(0.08) : Color.clear)
                                 )
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(PlainButtonStyle())
+                            .onHover { hovering in
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    isHoveringNewTab = hovering
+                                }
+                            }
                         }
                     }
                 }
