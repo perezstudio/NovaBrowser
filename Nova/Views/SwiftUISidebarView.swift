@@ -359,21 +359,24 @@ struct SidebarContentView: View {
                         if let spaceProfile = currentSpace.profile {
                             let pinnedTabs = getPinnedTabs(for: spaceProfile)
                             if !pinnedTabs.isEmpty {
-                                VStack(alignment: .leading, spacing: 4) {
+                                VStack(alignment: .leading, spacing: 8) {
                                     Text("Pinned")
                                         .font(.caption)
                                         .fontWeight(.semibold)
                                         .foregroundColor(.secondary)
                                         .padding(.horizontal, 4)
                                     
-                                    ForEach(pinnedTabs) { pinnedTab in
-                                        PinnedTabRow(
-                                            pinnedTab: pinnedTab,
-                                            isSelected: selectedItem == .pinnedTab(pinnedTab),
-                                            onTap: { selectedItem = .pinnedTab(pinnedTab) },
-                                            onClose: { selectedItem = nil }
-                                        )
-                                    }
+                                    PinnedTabsGrid(
+                                        pinnedTabs: pinnedTabs,
+                                        selectedItem: selectedItem,
+                                        sidebarWidth: sidebarWidth,
+                                        onTap: { pinnedTab in
+                                            selectedItem = .pinnedTab(pinnedTab)
+                                        },
+                                        onClose: {
+                                            selectedItem = nil
+                                        }
+                                    )
                                 }
                                 .padding(.bottom, 8)
                             }
@@ -885,6 +888,147 @@ struct TabRow: View {
                 onBookmark?()
             }
         }
+    }
+}
+
+/// Responsive grid layout for pinned tabs
+/// - Displays tabs as squares in adaptive columns based on sidebar width
+/// - Columns: 2 (narrow) -> 3 (default) -> 4 (medium) -> 5 (wide) -> 6 (very wide)
+/// - Each tab shows favicon and title, with close button on hover
+struct PinnedTabsGrid: View {
+    let pinnedTabs: [PinnedTab]
+    let selectedItem: SidebarItem?
+    let sidebarWidth: CGFloat
+    let onTap: (PinnedTab) -> Void
+    let onClose: () -> Void
+    
+    private var columnCount: Int {
+        // Adaptive column count based on sidebar width
+        // Each column needs about 50-60 pixels minimum for squares + spacing
+        switch sidebarWidth {
+        case 0..<200:
+            return 2  // Very narrow
+        case 200..<280:
+            return 3  // Narrow (default sidebar)
+        case 280..<360:
+            return 4  // Medium
+        case 360..<440:
+            return 5  // Wide
+        default:
+            return 6  // Very wide
+        }
+    }
+    
+    private var gridItems: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 6), count: columnCount)
+    }
+    
+    var body: some View {
+        LazyVGrid(columns: gridItems, spacing: 6) {
+            ForEach(pinnedTabs) { pinnedTab in
+                PinnedTabSquare(
+                    pinnedTab: pinnedTab,
+                    isSelected: selectedItem == .pinnedTab(pinnedTab),
+                    onTap: { onTap(pinnedTab) },
+                    onClose: onClose
+                )
+            }
+        }
+        .padding(.horizontal, 6)
+    }
+}
+
+/// Individual square tab component for pinned tabs grid
+/// - Displays favicon/icon and tab title
+/// - Shows close button in top-right corner on hover
+/// - Maintains 1:1 aspect ratio (square shape)
+struct PinnedTabSquare: View {
+    let pinnedTab: PinnedTab
+    let isSelected: Bool
+    let onTap: () -> Void
+    let onClose: () -> Void
+    @State private var isHovering = false
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(
+                        isSelected ? Color.accentColor.opacity(0.2) : 
+                        (isHovering ? Color.primary.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                isSelected ? Color.accentColor.opacity(0.6) : 
+                                Color.primary.opacity(0.1), 
+                                lineWidth: isSelected ? 1.5 : 0.5
+                            )
+                    )
+                
+                ZStack {
+                    // Main favicon/icon
+                    if let faviconData = pinnedTab.faviconData,
+                       let nsImage = NSImage(data: faviconData) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image(systemName: "pin.fill")
+                            .foregroundColor(.secondary)
+                            .frame(width: 20, height: 20)
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    
+                    // Close button in top-right corner
+                    if isHovering {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Button(action: {
+                                    Task { @MainActor in
+                                        onClose()
+                                        await DataManager.shared.removePinnedTab(pinnedTab)
+                                    }
+                                }) {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 16, height: 16)
+                                        .background(Color.red.opacity(0.8))
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .help("Unpin Tab")
+                                .offset(x: 4, y: -4)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(8)
+            }
+            .aspectRatio(1, contentMode: .fit) // This makes it square
+            
+            Text(pinnedTab.title)
+                .font(.caption2)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .truncationMode(.tail)
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, minHeight: 20)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+        .help(pinnedTab.title)
     }
 }
 
