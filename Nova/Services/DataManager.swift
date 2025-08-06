@@ -387,18 +387,19 @@ class DataManager: ObservableObject {
     
     // MARK: - Pinned Tab Management
     
-    func addPinnedTab(title: String, url: String) async {
-        guard let profile = currentProfile else { return }
+    func addPinnedTab(title: String, url: String, to profile: Profile? = nil) async {
+        let targetProfile = profile ?? currentProfile
+        guard let targetProfile = targetProfile else { return }
         
-        let pinnedTab = PinnedTab(title: title, url: url, profile: profile)
-        let existingPinnedTabs = loadPinnedTabs(for: profile)
+        let pinnedTab = PinnedTab(title: title, url: url, profile: targetProfile)
+        let existingPinnedTabs = loadPinnedTabs(for: targetProfile)
         pinnedTab.sortOrder = existingPinnedTabs.count
         
         modelContext.insert(pinnedTab)
         
         do {
             try modelContext.save()
-            print("DataManager: Added pinned tab: \(title)")
+            print("DataManager: Added pinned tab '\(title)' to profile '\(targetProfile.name)'")
         } catch {
             print("DataManager: Failed to add pinned tab: \(error)")
         }

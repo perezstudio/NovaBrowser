@@ -353,25 +353,29 @@ struct SidebarContentView: View {
             // Main content area with custom scroll view
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Pinned Tabs Section
-                    if let currentProfile = dataManager.currentProfile {
-                        let pinnedTabs = getPinnedTabs(for: currentProfile)
-                        if !pinnedTabs.isEmpty {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Pinned")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal, 4)
-                                
-                                ForEach(pinnedTabs) { pinnedTab in
-                                    PinnedTabRow(
-                                        pinnedTab: pinnedTab,
-                                        isSelected: selectedItem == .pinnedTab(pinnedTab),
-                                        onTap: { selectedItem = .pinnedTab(pinnedTab) },
-                                        onClose: { selectedItem = nil }
-                                    )
+                    // Pinned Tabs Section - Always visible, based on the current space's profile
+                    // Get the profile from the selected space, or use the default profile if no space is selected
+                    if let currentSpace = selectedSpace ?? spaces.first {
+                        if let spaceProfile = currentSpace.profile {
+                            let pinnedTabs = getPinnedTabs(for: spaceProfile)
+                            if !pinnedTabs.isEmpty {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Pinned")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 4)
+                                    
+                                    ForEach(pinnedTabs) { pinnedTab in
+                                        PinnedTabRow(
+                                            pinnedTab: pinnedTab,
+                                            isSelected: selectedItem == .pinnedTab(pinnedTab),
+                                            onTap: { selectedItem = .pinnedTab(pinnedTab) },
+                                            onClose: { selectedItem = nil }
+                                        )
+                                    }
                                 }
+                                .padding(.bottom, 8)
                             }
                         }
                     }
@@ -474,6 +478,21 @@ struct SidebarContentView: View {
                 editingSpace: $editingSpace,
                 sidebarWidth: sidebarWidth
             )
+        }
+        .onAppear {
+            // Ensure we have a selected space on appear
+            if selectedSpace == nil && !spaces.isEmpty {
+                selectedSpace = spaces.first
+            }
+        }
+        .onChange(of: spaces) { newSpaces in
+            // If the selected space is no longer available, select the first one
+            if let selectedSpace = selectedSpace,
+               !newSpaces.contains(where: { $0.id == selectedSpace.id }) {
+                self.selectedSpace = newSpaces.first
+            } else if selectedSpace == nil && !newSpaces.isEmpty {
+                selectedSpace = newSpaces.first
+            }
         }
     }
     
@@ -587,7 +606,9 @@ struct SpacesBottomBar: View {
                 SpaceButton(
                     space: space,
                     isSelected: selectedSpace?.id == space.id,
-                    onTap: { selectedSpace = space },
+                    onTap: { 
+                        selectedSpace = space
+                    },
                     editingSpace: $editingSpace,
                     showingSpaceSheet: $showingSpaceSheet
                 )
@@ -849,12 +870,15 @@ struct TabRow: View {
             }
             Button("Pin Tab") { 
                 Task { @MainActor in
-                    await DataManager.shared.addPinnedTab(title: tab.title, url: tab.url)
-                    // Clear selection if this is the selected tab
-                    if isSelected {
-                        onClose?()
+                    // Pin to the profile of the tab's space
+                    if let spaceProfile = tab.space?.profile {
+                        await DataManager.shared.addPinnedTab(title: tab.title, url: tab.url, to: spaceProfile)
+                        // Clear selection if this is the selected tab
+                        if isSelected {
+                            onClose?()
+                        }
+                        await DataManager.shared.closeTab(tab)
                     }
-                    await DataManager.shared.closeTab(tab)
                 }
             }
             Button("Bookmark Tab") { 
