@@ -455,7 +455,7 @@ struct SidebarContentView: View {
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 6)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 6)
+                                    RoundedRectangle(cornerRadius: 10)
                                         .fill(isHoveringNewTab ? Color.primary.opacity(0.08) : Color.clear)
                                 )
                                 .contentShape(Rectangle())
@@ -761,7 +761,7 @@ struct BookmarkRow: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     isSelected ? Color.accentColor.opacity(0.2) : 
                     (isHovering ? Color.primary.opacity(0.08) : Color.clear)
@@ -846,7 +846,7 @@ struct TabRow: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     isSelected ? Color.accentColor.opacity(0.2) : 
                     (isHovering ? Color.primary.opacity(0.08) : Color.clear)
@@ -1057,7 +1057,7 @@ struct PinnedTabRow: View {
         .padding(.horizontal, 4)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 10)
                 .fill(
                     isSelected ? Color.accentColor.opacity(0.2) : 
                     (isHovering ? Color.primary.opacity(0.08) : Color.clear)
@@ -1891,7 +1891,7 @@ struct SidebarItemButtonStyle: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(isSelected ? Color.accentColor.opacity(0.2) : (configuration.isPressed ? Color.gray.opacity(0.1) : Color.clear))
             )
             .contentShape(Rectangle())
