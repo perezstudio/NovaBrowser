@@ -247,6 +247,46 @@ class WebViewManager {
     }
 }
 
+/// Reusable squircle button component with SF Symbol icon
+/// - Configurable size, icon, and action
+/// - Clean squircle styling with hover effects (no borders)
+/// - Disabled state support
+struct SquircleButton: View {
+    let icon: String
+    let action: () -> Void
+    let size: CGFloat
+    let isDisabled: Bool
+    
+    @State private var isHovering = false
+    
+    init(icon: String, size: CGFloat = 32, isDisabled: Bool = false, action: @escaping () -> Void) {
+        self.icon = icon
+        self.size = size
+        self.isDisabled = isDisabled
+        self.action = action
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: size * 0.45, weight: .medium))
+                .foregroundColor(isDisabled ? .secondary.opacity(0.5) : (isHovering ? .primary : .secondary))
+                .frame(width: size, height: size)
+                .background(
+                    RoundedRectangle(cornerRadius: size * 0.3)
+                        .fill(isHovering && !isDisabled ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(isDisabled)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering && !isDisabled
+            }
+        }
+    }
+}
+
 struct NovaNavigationView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var dataManager = DataManager.shared
@@ -333,15 +373,15 @@ struct SidebarContentView: View {
                 Spacer()
                 
                 // Hide sidebar button
-                Button(action: { sidebarVisible.toggle() }) {
-                    Image(systemName: "sidebar.left")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
+                SquircleButton(
+                    icon: "sidebar.left",
+                    size: 30
+                ) {
+                    sidebarVisible.toggle()
                 }
-                .buttonStyle(PlainButtonStyle())
                 .padding(.trailing, 12)
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 8)
             .overlay(
                 Rectangle()
                     .frame(height: 1)
@@ -1099,38 +1139,42 @@ struct FloatingWebContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Custom URL bar
-            HStack(spacing: 12) {
+            HStack(spacing: 6) {
                 // Sidebar toggle button - only show when sidebar is closed
                 if !sidebarVisible {
-                    Button(action: { sidebarVisible.toggle() }) {
-                        Image(systemName: "sidebar.right")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
+                    SquircleButton(
+                        icon: "sidebar.right",
+                        size: 30
+                    ) {
+                        sidebarVisible.toggle()
                     }
-                    .buttonStyle(PlainButtonStyle())
                 }
                 
                 // Navigation buttons
-                HStack(spacing: 8) {
-                    Button(action: { webView?.goBack() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 3) {
+                    SquircleButton(
+                        icon: "chevron.left",
+                        size: 30,
+                        isDisabled: !canGoBack
+                    ) {
+                        webView?.goBack()
                     }
-                    .disabled(!canGoBack)
                     
-                    Button(action: { webView?.goForward() }) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .medium))
+                    SquircleButton(
+                        icon: "chevron.right",
+                        size: 30,
+                        isDisabled: !canGoForward
+                    ) {
+                        webView?.goForward()
                     }
-                    .disabled(!canGoForward)
                     
-                    Button(action: { webView?.reload() }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 14, weight: .medium))
+                    SquircleButton(
+                        icon: "arrow.clockwise",
+                        size: 30
+                    ) {
+                        webView?.reload()
                     }
                 }
-                .foregroundColor(.secondary)
-                .buttonStyle(PlainButtonStyle())
                 
                 // URL field
                 HStack {
