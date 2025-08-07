@@ -287,6 +287,46 @@ struct SquircleButton: View {
     }
 }
 
+struct MenuButton: View {
+    let icon: String
+    let size: CGFloat
+    let webView: CustomWebKitView?
+    
+    @State private var isHovering = false
+    
+    init(icon: String, size: CGFloat = 32, webView: CustomWebKitView?) {
+        self.icon = icon
+        self.size = size
+        self.webView = webView
+    }
+    
+    var body: some View {
+        Menu {
+            Button("Add Bookmark") { /* TODO */ }
+            Button("Developer Tools") { 
+                webView?.showInspector()
+            }
+            Divider()
+            Button("Settings") { /* TODO */ }
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: size * 0.45, weight: .medium))
+                .foregroundColor(isHovering ? .primary : .secondary)
+                .frame(width: size, height: size)
+                .background(
+                    RoundedRectangle(cornerRadius: size * 0.3)
+                        .fill(isHovering ? Color.primary.opacity(0.08) : Color.clear)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
+    }
+}
+
 struct NovaNavigationView: View {
     @Environment(\.modelContext) private var modelContext
     @StateObject private var dataManager = DataManager.shared
@@ -1222,20 +1262,24 @@ struct FloatingWebContentView: View {
                 .background(Color(NSColor.controlBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 
-                // Action buttons (removed plus button)
-                Menu {
-                    Button("Add Bookmark") { /* TODO */ }
-                    Button("Developer Tools") { 
-                        webView?.showInspector()
+                // Copy URL button
+                SquircleButton(
+                    icon: "link",
+                    size: 30,
+                    isDisabled: currentURL.isEmpty
+                ) {
+                    if !currentURL.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(currentURL, forType: .string)
                     }
-                    Divider()
-                    Button("Settings") { /* TODO */ }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 16, weight: .medium))
                 }
-                .foregroundColor(.secondary)
-                .buttonStyle(PlainButtonStyle())
+                
+                // Action buttons (removed plus button)  
+                MenuButton(
+                    icon: "ellipsis.circle",
+                    size: 30,
+                    webView: webView
+                )
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
