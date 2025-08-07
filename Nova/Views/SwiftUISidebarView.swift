@@ -671,9 +671,9 @@ struct SpacesBottomBar: View {
     
     private var needsScrolling: Bool {
         // Calculate if we need scrolling based on number of items and available width
-        let buttonWidth: CGFloat = 36
+        let buttonWidth: CGFloat = 30
         let spacing: CGFloat = 8
-        let addButtonWidth: CGFloat = 36
+        let addButtonWidth: CGFloat = 30
         let padding: CGFloat = 24 // 12 on each side
         
         let totalWidth = CGFloat(spaces.count) * buttonWidth + 
@@ -698,15 +698,12 @@ struct SpacesBottomBar: View {
             }
             
             // Add Space Button
-            Button(action: { showingSpaceSheet = true }) {
-                Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .frame(width: 36, height: 36)
-                    .background(Color.secondary.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            SquircleButton(
+                icon: "plus",
+                size: 30
+            ) {
+                showingSpaceSheet = true
             }
-            .buttonStyle(PlainButtonStyle())
         }
     }
 }
@@ -719,25 +716,27 @@ struct SpaceButton: View {
     @Binding var showingSpaceSheet: Bool
     
     @State private var showingContextMenu = false
+    @State private var isHovering = false
     @StateObject private var dataManager = DataManager.shared
     
     var body: some View {
         Button(action: onTap) {
             Image(systemName: space.iconName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(isSelected ? .white : space.displayColor.swiftUIColor)
-                .frame(width: 36, height: 36)
+                .font(.system(size: 30 * 0.45, weight: .medium))
+                .foregroundColor(isSelected ? space.displayColor.swiftUIColor : (isHovering ? space.displayColor.swiftUIColor : space.displayColor.swiftUIColor.opacity(0.8)))
+                .frame(width: 30, height: 30)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(isSelected ? space.displayColor.swiftUIColor : Color.clear)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(space.displayColor.swiftUIColor.opacity(0.3), lineWidth: isSelected ? 0 : 1)
-                        )
+                    RoundedRectangle(cornerRadius: 30 * 0.3)
+                        .fill(isSelected ? space.displayColor.swiftUIColor.opacity(0.3) : (isHovering ? space.displayColor.swiftUIColor.opacity(0.1) : Color.clear))
                 )
         }
         .buttonStyle(PlainButtonStyle())
         .help(space.name) // Show name as tooltip on hover
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovering = hovering
+            }
+        }
         .contextMenu {
             Button("Edit Space") {
                 editSpace(space)
