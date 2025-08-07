@@ -1274,6 +1274,23 @@ struct FloatingWebContentView: View {
                     }
                 }
                 
+                // Share button
+                SquircleButton(
+                    icon: "square.and.arrow.up",
+                    size: 30,
+                    isDisabled: currentURL.isEmpty
+                ) {
+                    if !currentURL.isEmpty, let url = URL(string: currentURL) {
+                        let picker = NSSharingServicePicker(items: [url])
+                        if let currentEvent = NSApp.currentEvent,
+                           let window = NSApp.keyWindow {
+                            let location = currentEvent.locationInWindow
+                            let rect = NSRect(origin: location, size: CGSize(width: 1, height: 1))
+                            picker.show(relativeTo: rect, of: window.contentView!, preferredEdge: .minY)
+                        }
+                    }
+                }
+                
                 // Action buttons (removed plus button)  
                 MenuButton(
                     icon: "ellipsis.circle",
