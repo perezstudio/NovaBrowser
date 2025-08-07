@@ -648,7 +648,7 @@ struct SpacesBottomBar: View {
     @StateObject private var dataManager = DataManager.shared
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             Divider()
             
             // Center the buttons and only scroll if needed
@@ -656,23 +656,24 @@ struct SpacesBottomBar: View {
                 if needsScrolling {
                     ScrollView(.horizontal, showsIndicators: false) {
                         buttonRow
+                            .padding(.horizontal, 12) // Add padding inside scroll view
                     }
+                    .clipped() // Clip the scroll view content to sidebar bounds
                 } else {
                     Spacer()
                     buttonRow
                     Spacer()
                 }
             }
-            .frame(height: 44)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, needsScrolling ? 0 : 12) // Only add padding when not scrolling
+            .padding(.vertical, 8)
         }
-        .padding(.bottom, 12)
     }
     
     private var needsScrolling: Bool {
         // Calculate if we need scrolling based on number of items and available width
         let buttonWidth: CGFloat = 30
-        let spacing: CGFloat = 8
+        let spacing: CGFloat = 4
         let addButtonWidth: CGFloat = 30
         let padding: CGFloat = 24 // 12 on each side
         
@@ -684,7 +685,7 @@ struct SpacesBottomBar: View {
     }
     
     private var buttonRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             ForEach(spaces) { space in
                 SpaceButton(
                     space: space,
