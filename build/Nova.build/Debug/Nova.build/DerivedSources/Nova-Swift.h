@@ -337,62 +337,54 @@ SWIFT_CLASS("_TtC4Nova16CustomWebKitView")
 - (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
 @end
 
-SWIFT_CLASS("_TtC4Nova13CustomWebView")
-@interface CustomWebView : NSView
-- (nonnull instancetype)initWithFrame:(NSRect)frameRect OBJC_DESIGNATED_INITIALIZER;
-- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
-@end
-
 @class WKWebView;
-@class WKNavigation;
-@class WKNavigationAction;
-@interface CustomWebView (SWIFT_EXTENSION(Nova)) <WKNavigationDelegate>
-- (void)webView:(WKWebView * _Nonnull)webView didStartProvisionalNavigation:(WKNavigation * _Null_unspecified)navigation;
-- (void)webView:(WKWebView * _Nonnull)webView didFinishNavigation:(WKNavigation * _Null_unspecified)navigation;
-- (void)webView:(WKWebView * _Nonnull)webView didFailNavigation:(WKNavigation * _Null_unspecified)navigation withError:(NSError * _Nonnull)error;
-- (void)webView:(WKWebView * _Nonnull)webView didFailProvisionalNavigation:(WKNavigation * _Null_unspecified)navigation withError:(NSError * _Nonnull)error;
-- (void)webView:(WKWebView * _Nonnull)webView decidePolicyForNavigationAction:(WKNavigationAction * _Nonnull)navigationAction decisionHandler:(void (^ _Nonnull)(WKNavigationActionPolicy))decisionHandler;
-@end
-
 @class WKSecurityOrigin;
 @class WKFrameInfo;
 @class WKWebViewConfiguration;
+@class WKNavigationAction;
 @class WKWindowFeatures;
-@class NSString;
-@interface CustomWebView (SWIFT_EXTENSION(Nova)) <WKUIDelegate>
+@interface CustomWebKitView (SWIFT_EXTENSION(Nova)) <WKUIDelegate>
 - (void)webView:(WKWebView * _Nonnull)webView requestMediaCapturePermissionForOrigin:(WKSecurityOrigin * _Nonnull)origin initiatedByFrame:(WKFrameInfo * _Nonnull)frame type:(WKMediaCaptureType)type decisionHandler:(void (^ _Nonnull)(WKPermissionDecision))decisionHandler;
 - (WKWebView * _Nullable)webView:(WKWebView * _Nonnull)webView createWebViewWithConfiguration:(WKWebViewConfiguration * _Nonnull)configuration forNavigationAction:(WKNavigationAction * _Nonnull)navigationAction windowFeatures:(WKWindowFeatures * _Nonnull)windowFeatures SWIFT_WARN_UNUSED_RESULT;
-- (void)webView:(WKWebView * _Nonnull)webView runJavaScriptAlertPanelWithMessage:(NSString * _Nonnull)message initiatedByFrame:(WKFrameInfo * _Nonnull)frame completionHandler:(void (^ _Nonnull)(void))completionHandler;
-- (void)webView:(WKWebView * _Nonnull)webView runJavaScriptConfirmPanelWithMessage:(NSString * _Nonnull)message initiatedByFrame:(WKFrameInfo * _Nonnull)frame completionHandler:(void (^ _Nonnull)(BOOL))completionHandler;
-- (void)webView:(WKWebView * _Nonnull)webView runJavaScriptTextInputPanelWithPrompt:(NSString * _Nonnull)prompt defaultText:(NSString * _Nullable)defaultText initiatedByFrame:(WKFrameInfo * _Nonnull)frame completionHandler:(void (^ _Nonnull)(NSString * _Nullable))completionHandler;
 @end
 
-SWIFT_CLASS("_TtC4Nova16InspectorBackend")
-@interface InspectorBackend : NSObject
-- (nonnull instancetype)init OBJC_DESIGNATED_INITIALIZER;
+@class WKNavigation;
+@interface CustomWebKitView (SWIFT_EXTENSION(Nova)) <WKNavigationDelegate>
+- (void)webView:(WKWebView * _Nonnull)webView didStartProvisionalNavigation:(WKNavigation * _Null_unspecified)navigation;
+- (void)webView:(WKWebView * _Nonnull)webView didFinishNavigation:(WKNavigation * _Null_unspecified)navigation;
+- (void)webView:(WKWebView * _Nonnull)webView didFailNavigation:(WKNavigation * _Null_unspecified)navigation withError:(NSError * _Nonnull)error;
 @end
 
 @class NSWindow;
-SWIFT_CLASS("_TtC4Nova15InspectorWindow")
-@interface InspectorWindow : NSWindowController
-- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
-- (nonnull instancetype)initWithWindow:(NSWindow * _Nullable)window SWIFT_UNAVAILABLE;
-@end
-
 SWIFT_CLASS("_TtC4Nova19NativeBrowserWindow")
 @interface NativeBrowserWindow : NSWindowController
 - (nonnull instancetype)initWithWindow:(NSWindow * _Nullable)window OBJC_DESIGNATED_INITIALIZER;
 - (nonnull instancetype)init;
 - (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
-- (void)goBack;
-- (void)goForward;
-- (void)reload;
-- (void)openDebugTools;
 - (void)toggleInspector;
+- (void)showInspectorConsole;
+- (void)showInspectorElements;
+- (void)showInspectorSources;
+- (void)windowDidLoad;
 @end
 
-@interface NativeBrowserWindow (SWIFT_EXTENSION(Nova)) <NSTextFieldDelegate>
-- (void)controlTextDidEndEditing:(NSNotification * _Nonnull)obj;
+SWIFT_CLASS("_TtC4Nova11SidebarView")
+@interface SidebarView : NSView
+- (nonnull instancetype)initWithFrame:(NSRect)frameRect OBJC_DESIGNATED_INITIALIZER;
+- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
+@end
+
+SWIFT_CLASS("_TtC4Nova29WebKitViewDelegateInterceptor")
+@interface WebKitViewDelegateInterceptor : NSObject
+- (nonnull instancetype)init SWIFT_UNAVAILABLE;
++ (nonnull instancetype)new SWIFT_UNAVAILABLE_MSG("-init is unavailable");
+@end
+
+SWIFT_CLASS("_TtC4Nova16WebViewContainer")
+@interface WebViewContainer : NSView
+- (nonnull instancetype)initWithFrame:(NSRect)frameRect OBJC_DESIGNATED_INITIALIZER;
+- (nullable instancetype)initWithCoder:(NSCoder * _Nonnull)coder OBJC_DESIGNATED_INITIALIZER;
+- (void)layout;
 @end
 
 #endif

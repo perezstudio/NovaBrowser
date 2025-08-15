@@ -26,11 +26,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("Nova Browser starting...")
         
+        // Set up custom WebKit framework loading
+        setupCustomWebKitFramework()
+        
         // Create and show the first browser window
         createNewBrowserWindow()
         
         // Activate the app
         NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    private func setupCustomWebKitFramework() {
+        let appPath = Bundle.main.bundlePath
+        let frameworksPath = "\(appPath)/Contents/Frameworks"
+        let customWebKitPath = "\(frameworksPath)/WebKit.framework"
+        
+        if FileManager.default.fileExists(atPath: customWebKitPath) {
+            print("Found custom WebKit framework at: \(customWebKitPath)")
+            
+            // Try to load the custom WebKit framework explicitly
+            if let bundle = Bundle(path: customWebKitPath) {
+                if bundle.load() {
+                    print("Successfully loaded custom WebKit framework")
+                } else {
+                    print("Failed to load custom WebKit framework bundle")
+                }
+            } else {
+                print("Could not create bundle for custom WebKit framework")
+            }
+        } else {
+            print("Custom WebKit framework not found at: \(customWebKitPath)")
+            print("Using system WebKit")
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -160,18 +187,20 @@ extension AppDelegate {
     }
     
     @objc func showWebInspector() {
-        // Find the current browser window and show inspector
-        if let keyWindow = NSApp.keyWindow,
-           let browserWindow = browserWindows.first(where: { $0.window == keyWindow }) {
-            browserWindow.toggleInspector()
+        // Get the current web view from WebViewManager
+        Task { @MainActor in
+            if let currentWebView = WebViewManager.shared.getCurrentWebView() {
+                currentWebView.showInspector()
+            }
         }
     }
     
     @objc func showJavaScriptConsole() {
-        // Find the current browser window and show inspector console
-        if let keyWindow = NSApp.keyWindow,
-           let browserWindow = browserWindows.first(where: { $0.window == keyWindow }) {
-            browserWindow.showInspectorConsole()
+        // Get the current web view from WebViewManager
+        Task { @MainActor in
+            if let currentWebView = WebViewManager.shared.getCurrentWebView() {
+                currentWebView.showInspectorConsole()
+            }
         }
     }
 }

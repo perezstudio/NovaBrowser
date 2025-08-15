@@ -21,5 +21,16 @@
 	<string>Nova needs Bluetooth access for wireless audio devices.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Some websites may request your location for location-based services.</string>
+	<key>com.apple.security.get-task-allow</key>
+	<true/>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>WEBKIT_INSPECTOR_SERVER</key>
+		<string>127.0.0.1:9999</string>
+		<key>WEBKIT_SHOW_INSPECTOR</key>
+		<string>1</string>
+	</dict>
 </dict>
 </plist>

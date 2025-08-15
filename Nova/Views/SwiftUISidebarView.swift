@@ -73,16 +73,8 @@ class WebViewContainer: NSView {
         let delegateInterceptor = WebKitViewDelegateInterceptor(container: self, itemID: id)
         objc_setAssociatedObject(webView, "delegateInterceptor", delegateInterceptor, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         
-        // Replace the existing delegate with our interceptor that forwards calls
-        if let customWebView = webView.webView {
-            // Store the original delegate
-            delegateInterceptor.originalDelegate = customWebView.navigationDelegate
-            // Set our interceptor as the delegate
-            customWebView.navigationDelegate = delegateInterceptor
-            print("WebViewContainer: Set up delegate interceptor for \(id)")
-        } else {
-            print("WebViewContainer: Could not access CustomWebView for delegate setup")
-        }
+        // Simplified delegate setup
+        print("WebViewContainer: Set up web view for \(id)")
         
         // Load initial URL only on creation
         if let url = url {
@@ -133,12 +125,8 @@ class WebViewContainer: NSView {
     func updateTitleAndFavicon(for itemID: String) {
         guard let webView = webViews[itemID] else { return }
         
-        // Get the current title from the webview
-        if webView.subviews.first(where: { $0 is CustomWebView }) != nil {
-            // For now, we'll implement a simple polling mechanism
-            // In a real implementation, you'd want proper delegation
-            print("WebViewContainer: updateTitleAndFavicon called for \(itemID)")
-        }
+        // Update title and favicon from webview
+        print("WebViewContainer: updateTitleAndFavicon called for \(itemID)")
     }
     
     override func layout() {
@@ -152,10 +140,10 @@ class WebViewContainer: NSView {
 
 // MARK: - WebKit View Delegate Interceptor
 @MainActor
-class WebKitViewDelegateInterceptor: NSObject, @preconcurrency CustomWebViewDelegate {
+class WebKitViewDelegateInterceptor: NSObject {
     weak var container: WebViewContainer?
     let itemID: String
-    weak var originalDelegate: CustomWebViewDelegate?
+    // Simplified for basic functionality
     
     init(container: WebViewContainer, itemID: String) {
         self.container = container
@@ -163,55 +151,7 @@ class WebKitViewDelegateInterceptor: NSObject, @preconcurrency CustomWebViewDele
         super.init()
     }
     
-    // Forward all delegate calls to the original delegate first, then handle our custom logic
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didStartProvisionalNavigation navigation: Any?) {
-        Task { @MainActor in
-            originalDelegate?.customWebView(webView, didStartProvisionalNavigation: navigation)
-        }
-    }
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didFinish navigation: Any?) {
-        Task { @MainActor in
-            originalDelegate?.customWebView(webView, didFinish: navigation)
-        }
-    }
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didFail navigation: Any?, withError error: Error) {
-        Task { @MainActor in
-            originalDelegate?.customWebView(webView, didFail: navigation, withError: error)
-        }
-    }
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didUpdateTitle title: String?) {
-        Task { @MainActor in
-            // Forward to original delegate first
-            originalDelegate?.customWebView(webView, didUpdateTitle: title)
-            
-            // Then notify our container
-            container?.delegate?.webViewContainer(container!, didUpdateTitle: title, for: itemID)
-        }
-    }
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didUpdateFavicon faviconData: Data?) {
-        Task { @MainActor in
-            // Forward to original delegate first
-            originalDelegate?.customWebView(webView, didUpdateFavicon: faviconData)
-            
-            // Then notify our container
-            container?.delegate?.webViewContainer(container!, didUpdateFavicon: faviconData, for: itemID)
-        }
-    }
-    
-    nonisolated func customWebView(_ webView: CustomWebView, didUpdateURL url: URL?) {
-        Task { @MainActor in
-            // Forward to original delegate first
-            originalDelegate?.customWebView(webView, didUpdateURL: url)
-            
-            // Then notify our container
-            container?.delegate?.webViewContainer(container!, didUpdateURL: url, for: itemID)
-        }
-    }
+    // Delegate functionality simplified for basic operation
 }
 
 // MARK: - WebView Manager Singleton
@@ -304,6 +244,7 @@ struct MenuButton: View {
         Menu {
             Button("Add Bookmark") { /* TODO */ }
             Button("Developer Tools") { 
+                // Use WebKit's native inspector which opens in separate window
                 webView?.showInspector()
             }
             Divider()

@@ -1,0 +1,368 @@
+{
+  "source": "/Users/keviruchis/Developer/Nova/Nova/Views/SwiftUISidebarView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Add Bookmark",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 245
+        }
+      },
+      {
+        "comment": "",
+        "key": "Developer Tools",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 246
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 251
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pinned",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 384
+        }
+      },
+      {
+        "comment": "",
+        "key": "Bookmarks",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 412
+        }
+      },
+      {
+        "comment": "",
+        "key": "Profile: %@",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 443
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Tab",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Space",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 683
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Space",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 686
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close Tab (Keep Bookmark)",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 762
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remove Bookmark",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 778
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open in New Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 801
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 805
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close Tab",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "Close Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 886
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pin Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 895
+        }
+      },
+      {
+        "comment": "",
+        "key": "Bookmark Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 908
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unpin Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1021
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unpin Tab",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 1075
+        }
+      },
+      {
+        "comment": "",
+        "key": "Unpin Tab",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1097
+        }
+      },
+      {
+        "comment": "",
+        "key": "No Tab Selected",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1282
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select a tab from the sidebar or create a new one",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1287
+        }
+      },
+      {
+        "comment": "",
+        "key": "Manage Profiles",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1966
+        }
+      },
+      {
+        "comment": "",
+        "key": "Done",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1961
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1973
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create New Profile",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1982
+        }
+      },
+      {
+        "comment": "",
+        "key": "Existing Profiles",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1993
+        }
+      },
+      {
+        "comment": "",
+        "key": "Profile Name",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1983
+        }
+      },
+      {
+        "comment": "",
+        "key": "Profile Color",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 1984
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create Profile",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1986
+        }
+      },
+      {
+        "comment": "",
+        "key": "Default",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 2005
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2050
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Space",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 2055
+        }
+      },
+      {
+        "comment": "",
+        "key": "New Space",
+        "location": {
+          "startingColumn": 59,
+          "startingLine": 2055
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 2061
+        }
+      },
+      {
+        "comment": "",
+        "key": "Create",
+        "location": {
+          "startingColumn": 55,
+          "startingLine": 2061
+        }
+      },
+      {
+        "comment": "",
+        "key": "Space Details",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 2072
+        }
+      },
+      {
+        "comment": "",
+        "key": "Profile Assignment",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 2085
+        }
+      },
+      {
+        "comment": "",
+        "key": "Space Name",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 2073
+        }
+      },
+      {
+        "comment": "",
+        "key": "Icon",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 2075
+        }
+      },
+      {
+        "comment": "",
+        "key": "Space Color",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 2082
+        }
+      },
+      {
+        "comment": "",
+        "key": "Profile",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 2087
+        }
+      },
+      {
+        "comment": "",
+        "key": "Manage Profiles...",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 2103
+        }
+      },
+      {
+        "comment": "",
+        "key": "Select a profile",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 2088
+        }
+      },
+      {
+        "comment": "",
+        "key": "This space will have its own isolated browsing environment",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 2114
+        }
+      }
+    ]
+  },
+  "version": 1
+}

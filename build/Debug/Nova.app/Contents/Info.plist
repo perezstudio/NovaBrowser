@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>BuildMachineOSBuild</key>
-	<string>25A5316i</string>
+	<string>25A5338b</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -44,6 +44,13 @@
 	<string>16F6</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>WEBKIT_INSPECTOR_SERVER</key>
+		<string>127.0.0.1:9999</string>
+		<key>WEBKIT_SHOW_INSPECTOR</key>
+		<string>1</string>
+	</dict>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
 	<key>NSAppTransportSecurity</key>
@@ -80,5 +87,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+	<key>com.apple.security.get-task-allow</key>
+	<true/>
 </dict>
 </plist>

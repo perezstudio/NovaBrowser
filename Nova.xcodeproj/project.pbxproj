@@ -8,7 +8,12 @@
 
 /* Begin PBXFileReference section */
 		11705BFC2E1E0DCF00F6D608 /* Nova.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nova.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1170WEBKIT001E0DCF00F6D608 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = WebKit/WebKitBuild/Release/WebKit.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		1170WEBKIT011E0DCF00F6D608 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1170WEBKIT001E0DCF00F6D608 /* WebKit.framework */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		11705C092E1E0DD000F6D608 /* Exceptions for "Nova" folder in "Nova" target */ = {
@@ -36,6 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1170WEBKIT011E0DCF00F6D608 /* WebKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -62,6 +68,7 @@
 		11705C0F2E1E0E2A00F6D608 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				1170WEBKIT001E0DCF00F6D608 /* WebKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -174,7 +181,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Nova/WebKitFrameworks",
+					"$(PROJECT_DIR)/WebKit/WebKitBuild/Release",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Nova/Info.plist;
@@ -245,7 +252,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Nova/WebKitFrameworks",
+					"$(PROJECT_DIR)/WebKit/WebKitBuild/Release",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Nova/Info.plist;
